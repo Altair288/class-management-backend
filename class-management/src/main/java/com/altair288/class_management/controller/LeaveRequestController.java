@@ -39,7 +39,7 @@ public class LeaveRequestController {
     }
 
     // 教师查看自己的审批记录
-    @GetMapping("/teacher/{teacherId}")
+    @GetMapping("/teacher/{teacherId}") 
     public ResponseEntity<List<LeaveRequest>> getLeaveRequestsByTeacher(@PathVariable Long teacherId) {
         return ResponseEntity.ok(leaveRequestService.getLeaveRequestsByTeacher(teacherId));
     }
