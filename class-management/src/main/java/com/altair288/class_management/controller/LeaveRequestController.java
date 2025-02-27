@@ -3,9 +3,11 @@ package com.altair288.class_management.controller;
 import com.altair288.class_management.model.LeaveRequest;
 import com.altair288.class_management.service.LeaveRequestService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/leave-requests")
@@ -16,27 +18,29 @@ public class LeaveRequestController {
 
     // 学生提交请假申请
     @PostMapping
-    public LeaveRequest createLeaveRequest(@RequestBody LeaveRequest leaveRequest) {
-        return leaveRequestService.createLeaveRequest(leaveRequest);
+    public ResponseEntity<LeaveRequest> createLeaveRequest(@RequestBody LeaveRequest leaveRequest) {
+        return ResponseEntity.ok(leaveRequestService.createLeaveRequest(leaveRequest));
     }
 
     // 查询学生的请假记录
     @GetMapping("/student/{studentId}")
-    public List<LeaveRequest> getStudentLeaveRequests(@PathVariable Long studentId) {
-        return leaveRequestService.getStudentLeaveRequests(studentId);
+    public ResponseEntity<List<LeaveRequest>> getStudentLeaveRequests(@PathVariable Long studentId) {
+        return ResponseEntity.ok(leaveRequestService.getStudentLeaveRequests(studentId));
     }
 
-    // 教师审批请假申请
-    @PostMapping("/approve/{leaveRequestId}")
-    public LeaveRequest approveLeaveRequest(@PathVariable Long leaveRequestId,
-                                            @RequestParam String status,
-                                            @RequestParam Long teacherId) {
-        return leaveRequestService.approveLeaveRequest(leaveRequestId, status, teacherId);
+    // 教师审批请假
+    @PutMapping("/approve/{leaveRequestId}")
+    public ResponseEntity<LeaveRequest> approveLeaveRequest(@PathVariable Long leaveRequestId,
+                                                            @RequestBody Map<String, String> requestBody) {
+        String status = requestBody.get("status");
+        Long teacherId = Long.parseLong(requestBody.get("teacherId"));
+        LeaveRequest leaveRequest = leaveRequestService.approveLeaveRequest(leaveRequestId, status, teacherId);
+        return ResponseEntity.ok(leaveRequest);
     }
 
-    // 教师查看所有请假记录
+    // 教师查看自己的审批记录
     @GetMapping("/teacher/{teacherId}")
-    public List<LeaveRequest> getLeaveRequestsByTeacher(@PathVariable Long teacherId) {
-        return leaveRequestService.getLeaveRequestsByTeacher(teacherId);
+    public ResponseEntity<List<LeaveRequest>> getLeaveRequestsByTeacher(@PathVariable Long teacherId) {
+        return ResponseEntity.ok(leaveRequestService.getLeaveRequestsByTeacher(teacherId));
     }
 }

@@ -1,6 +1,6 @@
 package com.altair288.class_management.model;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.Date;
 
 @Entity
@@ -11,47 +11,30 @@ public class LeaveRequest {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "student_id", nullable = false)
+    @Column(nullable = false)
     private Long studentId;
 
-    @Column(name = "leave_type", nullable = false)
+    @Column(nullable = false)
     private String leaveType;
 
-    @Column(name = "leave_reason", nullable = false)
+    @Column(nullable = false, length = 500)
     private String leaveReason;
 
-    @Column(name = "leave_start_date", nullable = false)
     @Temporal(TemporalType.DATE)
     private Date leaveStartDate;
 
-    @Column(name = "leave_end_date", nullable = false)
     @Temporal(TemporalType.DATE)
     private Date leaveEndDate;
 
-    @Column(name = "status", nullable = false)
-    private String status = "待审批";  // 默认状态
+    @Column(nullable = false)
+    private String status = "待审批"; // 默认状态
 
-    @Column(name = "teacher_id")
-    private Long teacherId;
+    private Long teacherId;  // 审批教师ID
 
-    @Column(name = "approval_date")
-    @Temporal(TemporalType.DATE)
-    private Date approvalDate;
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date approvalDate; // 审批时间
 
-    // **构造方法**
-    public LeaveRequest() {
-    }
-
-    public LeaveRequest(Long studentId, String leaveType, String leaveReason, Date leaveStartDate, Date leaveEndDate) {
-        this.studentId = studentId;
-        this.leaveType = leaveType;
-        this.leaveReason = leaveReason;
-        this.leaveStartDate = leaveStartDate;
-        this.leaveEndDate = leaveEndDate;
-        this.status = "待审批";  // 初始化状态
-    }
-
-    // **Getter 和 Setter 方法**
+    // --- Getters and Setters ---
     public Long getId() {
         return id;
     }
