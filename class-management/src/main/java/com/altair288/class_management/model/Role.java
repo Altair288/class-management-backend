@@ -17,6 +17,9 @@ public class Role {
     @OneToMany(mappedBy = "role", cascade = CascadeType.ALL)
     private Set<UserRole> userRoles = new HashSet<>();
 
+    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL)
+    private Set<RolePermission> rolePermissions;
+
     // 提供静态常量方便使用
     public static class RoleName {
         public static final String STUDENT = "学生";
@@ -36,4 +39,8 @@ public class Role {
     public void setRoleName(String roleName) { this.roleName = roleName; }
     public Set<UserRole> getUserRoles() { return userRoles; }
     public void setUserRoles(Set<UserRole> userRoles) { this.userRoles = userRoles; }
+    public Set<RolePermission> geSetRolePermissions() { return rolePermissions; }
+    public void setRolePermissions(Set<RolePermission> rolePermissions) { 
+        this.rolePermissions = rolePermissions; 
+    }
 }

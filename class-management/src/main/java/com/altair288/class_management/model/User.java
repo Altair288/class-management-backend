@@ -33,8 +33,8 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private Set<UserRole> userRoles = new HashSet<>();
 
-    public User(Integer id) {
-        this.id = id;
+    public User(Integer userId) {
+        this.id = userId;
     }
 
     // Getters and Setters

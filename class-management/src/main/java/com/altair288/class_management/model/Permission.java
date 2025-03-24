@@ -19,6 +19,10 @@ public class Permission {
     @OneToMany(mappedBy = "permission", cascade = CascadeType.ALL)
     private Set<RolePermission> rolePermissions;
 
+    public Permission(Integer id) {
+        this.id = id;
+    }
+        
     // Getters and Setters
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
