@@ -8,12 +8,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
-
-import java.util.Arrays;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 @Profile("dev") // 只在开发环境中启用
 public class TestDataInitializer implements CommandLineRunner {
+
+    private static final Logger logger = LoggerFactory.getLogger(TestDataInitializer.class);
 
     @Autowired private UserService userService;
     @Autowired private RoleService roleService;
@@ -23,65 +25,71 @@ public class TestDataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // 创建角色
-        Role adminRole = new Role(null);
-        adminRole.setRoleName(Role.RoleName.ADMIN);
-        adminRole = roleService.createRole(adminRole);
+        try {
+            // 创建角色
+            Role adminRole = new Role(null);
+            adminRole.setRoleName(Role.RoleName.ADMIN);
+            adminRole = roleService.createRole(adminRole);
 
-        Role teacherRole = new Role(null);
-        teacherRole.setRoleName(Role.RoleName.TEACHER);
-        teacherRole = roleService.createRole(teacherRole);
+            Role teacherRole = new Role(null);
+            teacherRole.setRoleName(Role.RoleName.TEACHER);
+            teacherRole = roleService.createRole(teacherRole);
 
-        Role studentRole = new Role(null);
-        studentRole.setRoleName(Role.RoleName.STUDENT);
-        studentRole = roleService.createRole(studentRole);
+            Role studentRole = new Role(null);
+            studentRole.setRoleName(Role.RoleName.STUDENT);
+            studentRole = roleService.createRole(studentRole);
 
-        // 创建权限
-        Permission createUserPermission = new Permission(null);
-        createUserPermission.setPermissionName("CREATE_USER");
-        createUserPermission.setDescription("创建用户权限");
-        createUserPermission = permissionService.createPermission(createUserPermission);
+            // 创建权限
+            Permission createUserPermission = new Permission(null);
+            createUserPermission.setPermissionName("CREATE_USER");
+            createUserPermission.setDescription("创建用户权限");
+            createUserPermission = permissionService.createPermission(createUserPermission);
 
-        Permission viewGradesPermission = new Permission(null);
-        viewGradesPermission.setPermissionName("VIEW_GRADES");
-        viewGradesPermission.setDescription("查看成绩权限");
-        viewGradesPermission = permissionService.createPermission(viewGradesPermission);
+            Permission viewGradesPermission = new Permission(null);
+            viewGradesPermission.setPermissionName("VIEW_GRADES");
+            viewGradesPermission.setDescription("查看成绩权限");
+            viewGradesPermission = permissionService.createPermission(viewGradesPermission);
 
-        // 创建用户
-        User adminUser = new User(null);
-        adminUser.setUsername("admin");
-        adminUser.setPassword("password123"); // 会被加密
-        adminUser.setUserType(User.UserType.ADMIN);
-        adminUser = userService.registerUser(adminUser);
+            // 创建用户
+            User adminUser = new User(null);
+            adminUser.setUsername("admin");
+            adminUser.setPassword("password123"); // 会被加密
+            adminUser.setUserType(User.UserType.ADMIN);
+            adminUser = userService.registerUser(adminUser);
 
-        User teacherUser = new User(null);
-        teacherUser.setUsername("teacher");
-        teacherUser.setPassword("password123");
-        teacherUser.setUserType(User.UserType.TEACHER);
-        teacherUser = userService.registerUser(teacherUser);
+            User teacherUser = new User(null);
+            teacherUser.setUsername("teacher");
+            teacherUser.setPassword("password123");
+            teacherUser.setUserType(User.UserType.TEACHER);
+            teacherUser = userService.registerUser(teacherUser);
 
-        User studentUser = new User(null);
-        studentUser.setUsername("student");
-        studentUser.setPassword("password123");
-        studentUser.setUserType(User.UserType.STUDENT);
-        studentUser = userService.registerUser(studentUser);
+            User studentUser = new User(null);
+            studentUser.setUsername("student");
+            studentUser.setPassword("password123");
+            studentUser.setUserType(User.UserType.STUDENT);
+            studentUser = userService.registerUser(studentUser);
 
-        // 分配角色
-        userRoleService.assignRoleToUser(adminUser.getId(), adminRole.getId());
-        userRoleService.assignRoleToUser(teacherUser.getId(), teacherRole.getId());
-        userRoleService.assignRoleToUser(studentUser.getId(), studentRole.getId());
+            // 分配角色
+            userRoleService.assignRoleToUser(adminUser.getId(), adminRole.getId());
+            userRoleService.assignRoleToUser(teacherUser.getId(), teacherRole.getId());
+            userRoleService.assignRoleToUser(studentUser.getId(), studentRole.getId());
 
-        // 分配权限
-        RolePermission adminCreateUser = new RolePermission();
-        adminCreateUser.setRole(adminRole);
-        adminCreateUser.setPermission(createUserPermission);
-        adminCreateUser.setGrantedBy(adminUser);
-        rolePermissionService.assignPermissionToRole(adminCreateUser);
+            // 分配权限
+            RolePermission adminCreateUser = new RolePermission();
+            adminCreateUser.setRole(adminRole);
+            adminCreateUser.setPermission(createUserPermission);
+            adminCreateUser.setGrantedBy(adminUser);
+            rolePermissionService.assignPermissionToRole(adminCreateUser);
 
-        RolePermission teacherViewGrades = new RolePermission();
-        teacherViewGrades.setRole(teacherRole);
-        teacherViewGrades.setPermission(viewGradesPermission);
-        teacherViewGrades.setGrantedBy(adminUser);
-        rolePermissionService.assignPermissionToRole(teacherViewGrades);
+            RolePermission teacherViewGrades = new RolePermission();
+            teacherViewGrades.setRole(teacherRole);
+            teacherViewGrades.setPermission(viewGradesPermission);
+            teacherViewGrades.setGrantedBy(adminUser);
+            rolePermissionService.assignPermissionToRole(teacherViewGrades);
+
+            logger.info("测试数据初始化完成");
+        } catch (Exception e) {
+            logger.error("初始化测试数据时发生错误: ", e);
+        }
     }
 }

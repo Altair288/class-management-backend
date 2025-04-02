@@ -20,7 +20,7 @@ public class User {
     private String password;
     
     @Enumerated(EnumType.STRING)
-    @Column(name = "user_type", nullable = false)
+    @Column(name = "user_type", length = 50, nullable = false)
     private UserType userType;
     
     @Column(name = "related_id")
@@ -33,6 +33,9 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private Set<UserRole> userRoles = new HashSet<>();
 
+    public User() {
+    }
+        
     public User(Integer userId) {
         this.id = userId;
     }
@@ -54,6 +57,9 @@ public class User {
     public void setUserRoles(Set<UserRole> userRoles) { this.userRoles = userRoles; }
 
     public enum UserType {
-        STUDENT, TEACHER, PARENT, ADMIN
+        STUDENT, 
+        TEACHER, 
+        PARENT, 
+        ADMIN
     }
 }

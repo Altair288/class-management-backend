@@ -28,6 +28,9 @@ public class Role {
         public static final String ADMIN = "管理员";
     }
 
+    public Role() {
+    }
+    
     public Role(Integer id) {
         this.id = id;
     }
