@@ -1,6 +1,7 @@
 // src/main/java/com/altair288/class_management/controller/UserController.java
 package com.altair288.class_management.controller;
 
+import com.altair288.class_management.dto.UserDTO;
 import com.altair288.class_management.model.User;
 import com.altair288.class_management.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,14 +20,24 @@ public class UserController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<User> registerUser(@RequestBody User user) {
+    public ResponseEntity<UserDTO> registerUser(@RequestBody User user) {
         User registeredUser = userService.registerUser(user);
-        return new ResponseEntity<>(registeredUser, HttpStatus.CREATED);
+        UserDTO userDTO = new UserDTO(
+            registeredUser.getId(),
+            registeredUser.getUsername(),
+            registeredUser.getUserType()
+        );
+        return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUser(@PathVariable Integer id) {
+    public ResponseEntity<UserDTO> getUser(@PathVariable Integer id) {
         User user = userService.getUserById(id);
-        return ResponseEntity.ok(user);
+        UserDTO userDTO = new UserDTO(
+            user.getId(),
+            user.getUsername(),
+            user.getUserType()
+        );
+        return ResponseEntity.ok(userDTO);
     }
 }
