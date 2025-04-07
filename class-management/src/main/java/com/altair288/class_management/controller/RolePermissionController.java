@@ -5,23 +5,30 @@ import com.altair288.class_management.dto.RolePermissionDTO;
 import com.altair288.class_management.model.Permission;
 import com.altair288.class_management.model.Role;
 import com.altair288.class_management.model.User;
+import com.altair288.class_management.model.UserRole;
 import com.altair288.class_management.model.RolePermission;
 import com.altair288.class_management.service.RolePermissionService;
+import com.altair288.class_management.service.UserRoleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
 
 @RestController
 @RequestMapping("/api/role-permissions")
 public class RolePermissionController {
     private final RolePermissionService rolePermissionService;
+    private final UserRoleService userRoleService;
 
     @Autowired
-    public RolePermissionController(RolePermissionService rolePermissionService) {
+    public RolePermissionController(RolePermissionService rolePermissionService, UserRoleService userRoleService) {
         this.rolePermissionService = rolePermissionService;
+        this.userRoleService = userRoleService;
     }
 
     @PostMapping
@@ -63,5 +70,46 @@ public class RolePermissionController {
                 rolePermission.getGrantedBy() != null ? rolePermission.getGrantedBy().getId() : null
             ))
             .collect(Collectors.toList());
+    }
+
+    @PostMapping("/assign-to-user")
+    public ResponseEntity<List<RolePermissionDTO>> assignPermissionsToUser(
+            @RequestParam Integer userId,
+            @RequestParam List<Integer> permissionIds,
+            @RequestParam Integer grantedByUserId) {
+        
+        List<RolePermission> assignedPermissions = new ArrayList<>();
+        
+        // 获取用户的角色
+        List<UserRole> userRoles = userRoleService.getRolesByUser(userId);
+        if (userRoles.isEmpty()) {
+            throw new IllegalArgumentException("用户没有分配角色");
+        }
+        
+        // 为用户的每个角色分配权限
+        for (UserRole userRole : userRoles) {
+            for (Integer permissionId : permissionIds) {
+                RolePermission rolePermission = new RolePermission();
+                rolePermission.setRole(userRole.getRole());
+                rolePermission.setPermission(new Permission(permissionId));
+                rolePermission.setGrantedBy(new User(grantedByUserId));
+                
+                assignedPermissions.add(rolePermissionService.assignPermissionToRole(rolePermission));
+            }
+        }
+        
+        // 转换为DTO
+        List<RolePermissionDTO> dtos = assignedPermissions.stream()
+            .map(rp -> new RolePermissionDTO(
+                rp.getId(),
+                rp.getRole().getId(),
+                rp.getRole().getRoleName(),
+                rp.getPermission().getId(),
+                rp.getPermission().getPermissionName(),
+                rp.getGrantedBy().getId()
+            ))
+            .collect(Collectors.toList());
+            
+        return new ResponseEntity<>(dtos, HttpStatus.CREATED);
     }
 }

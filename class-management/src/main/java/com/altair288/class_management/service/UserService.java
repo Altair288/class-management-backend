@@ -3,6 +3,8 @@ package com.altair288.class_management.service;
 
 import com.altair288.class_management.model.User;
 import com.altair288.class_management.repository.UserRepository;
+import com.altair288.class_management.util.PasswordValidator;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,7 +23,12 @@ public class UserService {
 
     public User registerUser(User user) {
         if (userRepository.existsByUsername(user.getUsername())) {
-            throw new IllegalArgumentException("Username already exists");
+            throw new IllegalArgumentException("用户名已存在");
+        }
+        
+        PasswordValidator.validatePassword(user.getPassword());
+        if (user.getPassword() == null || user.getPassword().isEmpty()) {
+            throw new IllegalArgumentException("密码不能为空");
         }
         
         user.setPassword(passwordEncoder.encode(user.getPassword()));
