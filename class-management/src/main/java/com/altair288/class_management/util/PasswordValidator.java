@@ -5,7 +5,6 @@ import java.util.regex.Pattern;
 public class PasswordValidator {
     private static final int MIN_LENGTH = 8;
     private static final int MAX_LENGTH = 20;
-    // 修正正则表达式
     private static final Pattern HAS_UPPER = Pattern.compile(".*[A-Z].*"); // 修改为大写字母匹配
     private static final Pattern HAS_LOWER = Pattern.compile(".*[a-z].*"); // 修改为小写字母匹配
     private static final Pattern HAS_NUMBER = Pattern.compile(".*\\d.*");
