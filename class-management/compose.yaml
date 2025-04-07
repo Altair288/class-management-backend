@@ -1,7 +1,6 @@
 services:
   mysql:
     image: 'mysql:latest'
-    restart: no
     environment:
       - 'MYSQL_DATABASE=mydatabase'
       - 'MYSQL_PASSWORD=secret'
