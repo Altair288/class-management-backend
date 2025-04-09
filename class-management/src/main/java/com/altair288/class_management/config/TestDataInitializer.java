@@ -36,6 +36,10 @@ public class TestDataInitializer implements CommandLineRunner {
             teacherRole.setRoleName(Role.RoleName.TEACHER);
             teacherRole = roleService.createRole(teacherRole);
 
+            Role parentRole = new Role(null);
+            parentRole.setRoleName(Role.RoleName.PARENT);
+            parentRole = roleService.createRole(parentRole);
+
             Role studentRole = new Role(null);
             studentRole.setRoleName(Role.RoleName.STUDENT);
             studentRole = roleService.createRole(studentRole);
@@ -64,6 +68,12 @@ public class TestDataInitializer implements CommandLineRunner {
             teacherUser.setUserType(User.UserType.TEACHER);
             teacherUser = userService.registerUser(teacherUser);
 
+            User parentUser = new User(null);
+            parentUser.setUsername("parent");
+            parentUser.setPassword(initialPassword);
+            parentUser.setUserType(User.UserType.PARENT);
+            parentUser = userService.registerUser(parentUser);
+
             User studentUser = new User(null);
             studentUser.setUsername("student");
             studentUser.setPassword(initialPassword);
@@ -74,6 +84,7 @@ public class TestDataInitializer implements CommandLineRunner {
             userRoleService.assignRoleToUser(adminUser.getId(), adminRole.getId());
             userRoleService.assignRoleToUser(teacherUser.getId(), teacherRole.getId());
             userRoleService.assignRoleToUser(studentUser.getId(), studentRole.getId());
+            userRoleService.assignRoleToUser(parentUser.getId(), parentUser.getId()); // 家长也可以是学生角色
 
             // 分配权限
             RolePermission adminCreateUser = new RolePermission();
@@ -91,7 +102,8 @@ public class TestDataInitializer implements CommandLineRunner {
             logger.info("测试数据初始化完成,请使用用户名和密码登录：\n" +
                     "管理员账号：admin, 密码：" + initialPassword + "\n" +
                     "教师账号：teacher, 密码：" + initialPassword + "\n" +
-                    "学生账号：student, 密码：" + initialPassword);
+                    "学生账号：student, 密码：" + initialPassword + "\n" +
+                    "家长账号：parent, 密码：" + initialPassword);
         } catch (Exception e) {
             logger.error("初始化测试数据时发生错误: ", e);
         }
