@@ -26,6 +26,7 @@ public class TestDataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         try {
+            final String initialPassword = "Test@123456";
             // 创建角色
             Role adminRole = new Role(null);
             adminRole.setRoleName(Role.RoleName.ADMIN);
@@ -53,19 +54,19 @@ public class TestDataInitializer implements CommandLineRunner {
             // 创建用户
             User adminUser = new User(null);
             adminUser.setUsername("admin");
-            adminUser.setPassword("password123"); // 会被加密
+            adminUser.setPassword(initialPassword); // 会被加密
             adminUser.setUserType(User.UserType.ADMIN);
             adminUser = userService.registerUser(adminUser);
 
             User teacherUser = new User(null);
             teacherUser.setUsername("teacher");
-            teacherUser.setPassword("password123");
+            teacherUser.setPassword(initialPassword);
             teacherUser.setUserType(User.UserType.TEACHER);
             teacherUser = userService.registerUser(teacherUser);
 
             User studentUser = new User(null);
             studentUser.setUsername("student");
-            studentUser.setPassword("password123");
+            studentUser.setPassword(initialPassword);
             studentUser.setUserType(User.UserType.STUDENT);
             studentUser = userService.registerUser(studentUser);
 
@@ -87,7 +88,10 @@ public class TestDataInitializer implements CommandLineRunner {
             teacherViewGrades.setGrantedBy(adminUser);
             rolePermissionService.assignPermissionToRole(teacherViewGrades);
 
-            logger.info("测试数据初始化完成");
+            logger.info("测试数据初始化完成,请使用用户名和密码登录：\n" +
+                    "管理员账号：admin, 密码：" + initialPassword + "\n" +
+                    "教师账号：teacher, 密码：" + initialPassword + "\n" +
+                    "学生账号：student, 密码：" + initialPassword);
         } catch (Exception e) {
             logger.error("初始化测试数据时发生错误: ", e);
         }
