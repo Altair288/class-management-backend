@@ -66,6 +66,19 @@ public class UserController {
         return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
     }
 
+    @GetMapping("/current")
+    public ResponseEntity<UserDTO> getCurrentUser() {
+        // 获取当前登录用户的信息
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User user = userService.getUserByUsername(authentication.getName());
+        UserDTO userDTO = new UserDTO(
+            user.getId(),
+            user.getUsername(),
+            user.getUserType()
+        );
+        return ResponseEntity.ok(userDTO);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<UserDTO> getUser(@PathVariable Integer id) {
         User user = userService.getUserById(id);

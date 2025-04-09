@@ -23,7 +23,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/users/register").permitAll()
                 .requestMatchers("/api/users/login").permitAll()
-                .requestMatchers("api/role-permissions").permitAll()
+                .requestMatchers("/api/role-permissions").permitAll()
                 .requestMatchers("/api/role-permissions/role/{roleId}").permitAll()
                 .requestMatchers("/api/role-permissions/assign-to-user").permitAll()
                 .anyRequest().authenticated()

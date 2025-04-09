@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -70,6 +71,37 @@ public class RolePermissionController {
                 rolePermission.getGrantedBy() != null ? rolePermission.getGrantedBy().getId() : null
             ))
             .collect(Collectors.toList());
+    }
+
+    // 添加获取用户权限的GET方法
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<RolePermissionDTO>> getUserPermissions(@PathVariable Integer userId) {
+        // 获取用户的所有角色
+        List<UserRole> userRoles = userRoleService.getRolesByUser(userId);
+        if (userRoles.isEmpty()) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+
+        // 获取这些角色的所有权限
+        List<RolePermission> allPermissions = new ArrayList<>();
+        for (UserRole userRole : userRoles) {
+            List<RolePermission> rolePermissions = rolePermissionService.getPermissionsByRole(userRole.getRole().getId());
+            allPermissions.addAll(rolePermissions);
+        }
+
+        // 转换为DTO
+        List<RolePermissionDTO> dtos = allPermissions.stream()
+            .map(rp -> new RolePermissionDTO(
+                rp.getId(),
+                rp.getRole().getId(),
+                rp.getRole().getRoleName(),
+                rp.getPermission().getId(),
+                rp.getPermission().getPermissionName(),
+                rp.getGrantedBy() != null ? rp.getGrantedBy().getId() : null
+            ))
+            .collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
     }
 
     @PostMapping("/assign-to-user")
