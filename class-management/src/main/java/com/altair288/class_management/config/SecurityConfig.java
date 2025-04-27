@@ -26,6 +26,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/role-permissions").permitAll()
                 .requestMatchers("/api/role-permissions/role/{roleId}").permitAll()
                 .requestMatchers("/api/role-permissions/assign-to-user").permitAll()
+                .requestMatchers("/api/leave-requests").permitAll()
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form
