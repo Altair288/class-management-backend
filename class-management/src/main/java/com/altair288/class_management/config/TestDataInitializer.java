@@ -2,7 +2,6 @@
 package com.altair288.class_management.config;
 
 import com.altair288.class_management.model.*;
-import com.altair288.class_management.repository.*;
 import com.altair288.class_management.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
