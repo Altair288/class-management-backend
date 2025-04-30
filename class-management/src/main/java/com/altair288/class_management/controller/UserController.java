@@ -4,8 +4,11 @@ package com.altair288.class_management.controller;
 import com.altair288.class_management.dto.LoginRequestDTO;
 import com.altair288.class_management.dto.UserDTO;
 import com.altair288.class_management.model.User;
+import com.altair288.class_management.model.Student;
+import com.altair288.class_management.model.Parent;
+import com.altair288.class_management.model.Teacher;
 import com.altair288.class_management.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.altair288.class_management.service.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,13 +22,19 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
     private final UserService userService;
     private final AuthenticationManager authenticationManager;
+    private final StudentService studentService;
+    private final TeacherService teacherService;
+    private final ParentService parentService;
 
-    @Autowired
-    public UserController(UserService userService, AuthenticationManager authenticationManager) {
-        this.authenticationManager = authenticationManager;
+    public UserController(UserService userService, AuthenticationManager authenticationManager, StudentService studentService, 
+                          TeacherService teacherService, ParentService parentService) {
         this.userService = userService;
+        this.authenticationManager = authenticationManager; // Initialize authenticationManager
+        this.studentService = studentService; // Initialize studentService
+        this.teacherService = teacherService; // Initialize teacherService
+        this.parentService = parentService; // Initialize parentService
     }
-
+    
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequestDTO loginRequest) {
         try {
@@ -57,6 +66,17 @@ public class UserController {
 
     @PostMapping("/register")
     public ResponseEntity<UserDTO> registerUser(@RequestBody User user) {
+        // 1. 根据userType自动设置username
+        if (user.getUserType() == User.UserType.STUDENT && user.getRelatedId() != null) {
+            Student student = studentService.getStudentById(user.getRelatedId());
+            user.setUsername(student.getStudentNo());
+        } else if (user.getUserType() == User.UserType.TEACHER && user.getRelatedId() != null) {
+            Teacher teacher = teacherService.getTeacherById(user.getRelatedId());
+            user.setUsername(teacher.getTeacherNo());
+        } else if (user.getUserType() == User.UserType.PARENT && user.getRelatedId() != null) {
+            Parent parent = parentService.getParentById(user.getRelatedId());
+            user.setUsername(parent.getPhone());
+        }
         User registeredUser = userService.registerUser(user);
         UserDTO userDTO = new UserDTO(
             registeredUser.getId(),

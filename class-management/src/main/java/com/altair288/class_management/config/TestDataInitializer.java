@@ -21,6 +21,10 @@ public class TestDataInitializer implements CommandLineRunner {
     @Autowired private PermissionService permissionService;
     @Autowired private UserRoleService userRoleService;
     @Autowired private RolePermissionService rolePermissionService;
+    @Autowired private TeacherService teacherService;
+    @Autowired private StudentService studentService;
+    @Autowired private ParentService parentService;
+    @Autowired private ClassService classService;
 
     @Override
     public void run(String... args) {
@@ -53,31 +57,65 @@ public class TestDataInitializer implements CommandLineRunner {
             viewGradesPermission.setPermissionName("VIEW_GRADES");
             viewGradesPermission.setDescription("查看成绩权限");
             viewGradesPermission = permissionService.createPermission(viewGradesPermission);
+            
+            // 创建教师
+            Teacher teacher = new Teacher();
+            teacher.setName("张老师");
+            teacher.setTeacherNo("T2024001");
+            teacher.setPhone("13800000001");
+            teacher.setEmail("teacher@example.com");
+            teacher = teacherService.save(teacher);
+            
+            // 再创建班级，并设置教师
+            com.altair288.class_management.model.Class clazz = new com.altair288.class_management.model.Class();
+            clazz.setName("一班");
+            clazz.setTeacher(teacher);
+            clazz = classService.save(clazz);
 
-            // 创建用户
-            User adminUser = new User(null);
-            adminUser.setUsername("admin");
-            adminUser.setPassword(initialPassword); // 会被加密
-            adminUser.setUserType(User.UserType.ADMIN);
-            adminUser = userService.registerUser(adminUser);
+            // 创建学生并设置班级
+            Student student = new Student();
+            student.setName("李学生");
+            student.setStudentNo("S2024001");
+            student.setPhone("13900000001");
+            student.setEmail("student@example.com");
+            student.setClazz(clazz); // 关键：设置class_id
+            student = studentService.save(student);
 
+            Parent parent = new Parent();
+            parent.setName("王家长");
+            parent.setPhone("13700000001");
+            parent.setEmail("parent@example.com");
+            parent.setStudent(student);
+            parent = parentService.save(parent);
+
+            // 创建用户并用学号/工号/手机号作为用户名
             User teacherUser = new User(null);
-            teacherUser.setUsername("teacher");
+            teacherUser.setUsername(teacher.getTeacherNo());
             teacherUser.setPassword(initialPassword);
             teacherUser.setUserType(User.UserType.TEACHER);
+            teacherUser.setRelatedId(teacher.getId());
             teacherUser = userService.registerUser(teacherUser);
 
-            User parentUser = new User(null);
-            parentUser.setUsername("parent");
-            parentUser.setPassword(initialPassword);
-            parentUser.setUserType(User.UserType.PARENT);
-            parentUser = userService.registerUser(parentUser);
-
             User studentUser = new User(null);
-            studentUser.setUsername("student");
+            studentUser.setUsername(student.getStudentNo());
             studentUser.setPassword(initialPassword);
             studentUser.setUserType(User.UserType.STUDENT);
+            studentUser.setRelatedId(student.getId());
             studentUser = userService.registerUser(studentUser);
+
+            User parentUser = new User(null);
+            parentUser.setUsername(parent.getPhone());
+            parentUser.setPassword(initialPassword);
+            parentUser.setUserType(User.UserType.PARENT);
+            parentUser.setRelatedId(parent.getId());
+            parentUser = userService.registerUser(parentUser);
+
+            // 管理员账号可保持原样
+            User adminUser = new User(null);
+            adminUser.setUsername("admin");
+            adminUser.setPassword(initialPassword);
+            adminUser.setUserType(User.UserType.ADMIN);
+            adminUser = userService.registerUser(adminUser);
 
             // 分配角色
             userRoleService.assignRoleToUser(adminUser.getId(), adminRole.getId());
@@ -100,9 +138,9 @@ public class TestDataInitializer implements CommandLineRunner {
 
             logger.info("测试数据初始化完成,请使用用户名和密码登录：\n" +
                     "管理员账号：admin, 密码：" + initialPassword + "\n" +
-                    "教师账号：teacher, 密码：" + initialPassword + "\n" +
-                    "学生账号：student, 密码：" + initialPassword + "\n" +
-                    "家长账号：parent, 密码：" + initialPassword);
+                    "教师账号：T2024001, 密码：" + initialPassword + "\n" +
+                    "学生账号：S2024001, 密码：" + initialPassword + "\n" +
+                    "家长账号：Telphone Number , 密码：" + initialPassword);
         } catch (Exception e) {
             logger.error("初始化测试数据时发生错误: ", e);
         }
