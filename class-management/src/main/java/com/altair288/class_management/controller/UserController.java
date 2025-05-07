@@ -69,12 +69,21 @@ public class UserController {
         // 1. 根据userType自动设置username
         if (user.getUserType() == User.UserType.STUDENT && user.getRelatedId() != null) {
             Student student = studentService.getStudentById(user.getRelatedId());
+            if (student == null) {
+                throw new IllegalArgumentException("学生ID不存在");
+            }
             user.setUsername(student.getStudentNo());
         } else if (user.getUserType() == User.UserType.TEACHER && user.getRelatedId() != null) {
             Teacher teacher = teacherService.getTeacherById(user.getRelatedId());
+            if (teacher == null) {
+                throw new IllegalArgumentException("教师ID不存在");
+            }
             user.setUsername(teacher.getTeacherNo());
         } else if (user.getUserType() == User.UserType.PARENT && user.getRelatedId() != null) {
             Parent parent = parentService.getParentById(user.getRelatedId());
+            if (parent == null) {
+                throw new IllegalArgumentException("家长ID不存在");
+            }
             user.setUsername(parent.getPhone());
         }
         User registeredUser = userService.registerUser(user);

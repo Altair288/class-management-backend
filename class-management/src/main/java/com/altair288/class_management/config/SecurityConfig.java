@@ -1,8 +1,10 @@
 // src/main/java/com/altair288/class_management/config/SecurityConfig.java
 package com.altair288.class_management.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -15,7 +17,6 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-    
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -23,20 +24,33 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/users/register").permitAll()
                 .requestMatchers("/api/users/login").permitAll()
-                .requestMatchers("/api/role-permissions").permitAll()
-                .requestMatchers("/api/role-permissions/role/{roleId}").permitAll()
-                .requestMatchers("/api/role-permissions/assign-to-user").permitAll()
-                .requestMatchers("/api/leave-requests").permitAll()
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form
                 .loginProcessingUrl("/api/users/login")
-                .successHandler((req, res, auth) -> res.setStatus(200))
-                .failureHandler((req, res, e) -> res.setStatus(401))
+                .successHandler((req, res, auth) -> {
+                    res.setStatus(200);
+                    res.setContentType("application/json;charset=UTF-8");
+                    res.getWriter().write("{\"message\": \"登录成功\"}");
+                })
+                .failureHandler((req, res, e) -> {
+                    res.setStatus(401);
+                    res.setContentType("application/json;charset=UTF-8");
+                    res.getWriter().write("{\"message\": \"用户名和密码错误\"}");
+                })
+                .permitAll()
+            )
+            .logout(logout -> logout
+                .logoutUrl("/api/users/logout")
+                .logoutSuccessHandler((req, res, auth) -> {
+                    res.setStatus(200);
+                    res.setContentType("application/json;charset=UTF-8");
+                    res.getWriter().write("{\"message\": \"登出成功\"}");
+                })
             );
         return http.build();
     }
-
+    
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
