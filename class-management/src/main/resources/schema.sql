@@ -181,10 +181,7 @@ CREATE TABLE `user` (
   `related_id` int DEFAULT NULL COMMENT '关联的身份ID',
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
-  KEY `related_id` (`related_id`),
-  CONSTRAINT `user_ibfk_1` FOREIGN KEY (`related_id`) REFERENCES `student` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `user_ibfk_2` FOREIGN KEY (`related_id`) REFERENCES `teacher` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `user_ibfk_3` FOREIGN KEY (`related_id`) REFERENCES `parent` (`id`) ON DELETE CASCADE
+  KEY `related_id` (`related_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
