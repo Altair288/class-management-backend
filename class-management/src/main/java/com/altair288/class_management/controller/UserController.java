@@ -3,12 +3,18 @@ package com.altair288.class_management.controller;
 
 import com.altair288.class_management.dto.LoginRequestDTO;
 import com.altair288.class_management.dto.UserDTO;
+import com.altair288.class_management.dto.StudentRegisterDTO;
+import com.altair288.class_management.dto.TeacherRegisterDTO;
+import com.altair288.class_management.dto.ParentRegisterDTO;
 import com.altair288.class_management.model.User;
 import com.altair288.class_management.model.Student;
 import com.altair288.class_management.model.Parent;
 import com.altair288.class_management.model.Teacher;
 import com.altair288.class_management.service.UserService;
-import com.altair288.class_management.service.*;
+import com.altair288.class_management.service.StudentService;
+import com.altair288.class_management.service.TeacherService;
+import com.altair288.class_management.service.ParentService;
+import com.altair288.class_management.service.ClassService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,14 +31,16 @@ public class UserController {
     private final StudentService studentService;
     private final TeacherService teacherService;
     private final ParentService parentService;
+    private final ClassService classService;
 
     public UserController(UserService userService, AuthenticationManager authenticationManager, StudentService studentService, 
-                          TeacherService teacherService, ParentService parentService) {
+                          TeacherService teacherService, ParentService parentService, ClassService classService) {
         this.userService = userService;
         this.authenticationManager = authenticationManager; // Initialize authenticationManager
         this.studentService = studentService; // Initialize studentService
         this.teacherService = teacherService; // Initialize teacherService
         this.parentService = parentService; // Initialize parentService
+        this.classService = classService; // Initialize classService
     }
     
     @PostMapping("/login")
@@ -64,29 +72,78 @@ public class UserController {
         }
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<UserDTO> registerUser(@RequestBody User user) {
-        // 1. 根据userType自动设置username
-        if (user.getUserType() == User.UserType.STUDENT && user.getRelatedId() != null) {
-            Student student = studentService.getStudentById(user.getRelatedId());
-            if (student == null) {
-                throw new IllegalArgumentException("学生ID不存在");
+    @PostMapping("/register/student")
+    public ResponseEntity<UserDTO> registerStudent(@RequestBody StudentRegisterDTO dto) {
+        Student student = new Student();
+        student.setName(dto.getName());
+        student.setStudentNo(dto.getStudentNo());
+        student.setPhone(dto.getPhone());
+        student.setEmail(dto.getEmail());
+        if (dto.getClassId() != null) {
+            com.altair288.class_management.model.Class clazz = classService.getById(dto.getClassId());
+            if (clazz == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
             }
-            user.setUsername(student.getStudentNo());
-        } else if (user.getUserType() == User.UserType.TEACHER && user.getRelatedId() != null) {
-            Teacher teacher = teacherService.getTeacherById(user.getRelatedId());
-            if (teacher == null) {
-                throw new IllegalArgumentException("教师ID不存在");
-            }
-            user.setUsername(teacher.getTeacherNo());
-        } else if (user.getUserType() == User.UserType.PARENT && user.getRelatedId() != null) {
-            Parent parent = parentService.getParentById(user.getRelatedId());
-            if (parent == null) {
-                throw new IllegalArgumentException("家长ID不存在");
-            }
-            user.setUsername(parent.getPhone());
+            student.setClazz(clazz);
         }
+        student = studentService.save(student);
+
+        User user = new User();
+        user.setUsername(dto.getStudentNo());
+        user.setPassword(dto.getPassword());
+        user.setUserType(User.UserType.STUDENT);
+        user.setRelatedId(student.getId());
         User registeredUser = userService.registerUser(user);
+
+        UserDTO userDTO = new UserDTO(
+            registeredUser.getId(),
+            registeredUser.getUsername(),
+            registeredUser.getUserType()
+        );
+        return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/register/teacher")
+    public ResponseEntity<UserDTO> registerTeacher(@RequestBody TeacherRegisterDTO dto) {
+        Teacher teacher = new Teacher();
+        teacher.setName(dto.getName());
+        teacher.setTeacherNo(dto.getTeacherNo());
+        teacher.setPhone(dto.getPhone());
+        teacher.setEmail(dto.getEmail());
+        teacher = teacherService.save(teacher);
+
+        User user = new User();
+        user.setUsername(dto.getTeacherNo());
+        user.setPassword(dto.getPassword());
+        user.setUserType(User.UserType.TEACHER);
+        user.setRelatedId(teacher.getId());
+        User registeredUser = userService.registerUser(user);
+
+        UserDTO userDTO = new UserDTO(
+            registeredUser.getId(),
+            registeredUser.getUsername(),
+            registeredUser.getUserType()
+        );
+        return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/register/parent")
+    public ResponseEntity<UserDTO> registerParent(@RequestBody ParentRegisterDTO dto) {
+        Parent parent = new Parent();
+        parent.setName(dto.getName());
+        parent.setPhone(dto.getPhone());
+        parent.setEmail(dto.getEmail());
+        Student student = studentService.getStudentById(dto.getStudentId());
+        parent.setStudent(student);
+        parent = parentService.save(parent);
+
+        User user = new User();
+        user.setUsername(dto.getPhone());
+        user.setPassword(dto.getPassword());
+        user.setUserType(User.UserType.PARENT);
+        user.setRelatedId(parent.getId());
+        User registeredUser = userService.registerUser(user);
+
         UserDTO userDTO = new UserDTO(
             registeredUser.getId(),
             registeredUser.getUsername(),
