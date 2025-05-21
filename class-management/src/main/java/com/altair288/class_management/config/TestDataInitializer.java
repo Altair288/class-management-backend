@@ -68,10 +68,25 @@ public class TestDataInitializer implements CommandLineRunner {
             teacher = teacherService.save(teacher);
             
             // 再创建班级，并设置教师
-            com.altair288.class_management.model.Class clazz = new com.altair288.class_management.model.Class();
-            clazz.setName("一班");
-            clazz.setTeacher(teacher);
-            clazz = classService.save(clazz);
+            com.altair288.class_management.model.Class clazz1 = new com.altair288.class_management.model.Class();
+            clazz1.setName("计算机网络1班");
+            clazz1.setTeacher(teacher);
+            clazz1 = classService.save(clazz1);
+
+            com.altair288.class_management.model.Class clazz2 = new com.altair288.class_management.model.Class();
+            clazz2.setName("计算机网络2班");
+            clazz2.setTeacher(teacher);
+            clazz2 = classService.save(clazz2);
+
+            com.altair288.class_management.model.Class clazz3 = new com.altair288.class_management.model.Class();
+            clazz3.setName("物联网技术1班");
+            clazz3.setTeacher(teacher);
+            clazz3 = classService.save(clazz3);
+
+            com.altair288.class_management.model.Class clazz4 = new com.altair288.class_management.model.Class();
+            clazz4.setName("物联网技术2班");
+            clazz4.setTeacher(teacher);
+            clazz4 = classService.save(clazz4);
 
             // 创建学生并设置班级
             Student student = new Student();
@@ -79,7 +94,7 @@ public class TestDataInitializer implements CommandLineRunner {
             student.setStudentNo("S2024001");
             student.setPhone("13900000001");
             student.setEmail("student@example.com");
-            student.setClazz(clazz); // 关键：设置class_id
+            student.setClazz(clazz1); // 关键：设置class_id
             student = studentService.save(student);
 
             Parent parent = new Parent();

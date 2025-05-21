@@ -44,6 +44,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/users/register/parent").permitAll()
                 .requestMatchers("/api/users/register/teacher").permitAll()
                 .requestMatchers("/api/users/login").permitAll()
+                .requestMatchers("/api/users/classes").permitAll()
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form

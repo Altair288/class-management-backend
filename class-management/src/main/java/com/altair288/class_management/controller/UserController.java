@@ -1,6 +1,7 @@
 // src/main/java/com/altair288/class_management/controller/UserController.java
 package com.altair288.class_management.controller;
 
+import com.altair288.class_management.dto.ClassSimpleDTO;
 import com.altair288.class_management.dto.LoginRequestDTO;
 import com.altair288.class_management.dto.UserDTO;
 import com.altair288.class_management.dto.StudentRegisterDTO;
@@ -79,13 +80,18 @@ public class UserController {
         student.setStudentNo(dto.getStudentNo());
         student.setPhone(dto.getPhone());
         student.setEmail(dto.getEmail());
+
+        com.altair288.class_management.model.Class clazz = null;
         if (dto.getClassId() != null) {
-            com.altair288.class_management.model.Class clazz = classService.getById(dto.getClassId());
-            if (clazz == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
-            }
-            student.setClazz(clazz);
+            clazz = classService.getById(dto.getClassId());
+        } else if (dto.getClassName() != null && !dto.getClassName().isEmpty()) {
+            clazz = classService.getByName(dto.getClassName());
         }
+        if (clazz == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+        student.setClazz(clazz);
+
         student = studentService.save(student);
 
         User user = new User();
@@ -174,5 +180,14 @@ public class UserController {
             user.getUserType()
         );
         return ResponseEntity.ok(userDTO);
+    }
+
+    @GetMapping("/classes")
+    public ResponseEntity<?> getAllClasses() {
+        var classes = classService.findAll();
+        var result = classes.stream()
+            .map(c -> new ClassSimpleDTO(c.getId(), c.getName()))
+            .toList();
+        return ResponseEntity.ok(result);
     }
 }

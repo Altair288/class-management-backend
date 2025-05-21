@@ -7,6 +7,7 @@ public class StudentRegisterDTO {
     private String phone;
     private String email;
     private Integer classId;
+    private String className;
 
     public String getName() {
         return name;
@@ -54,5 +55,12 @@ public class StudentRegisterDTO {
 
     public void setClassId(Integer classId) {
         this.classId = classId;
+    }
+
+    public String getClassName() {
+        return className;
+    }
+    public void setClassName(String className) {
+        this.className = className;
     }
 }

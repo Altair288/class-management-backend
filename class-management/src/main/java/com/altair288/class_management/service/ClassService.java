@@ -5,6 +5,7 @@ import com.altair288.class_management.repository.ClassRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -22,5 +23,13 @@ public class ClassService {
 
     public Class getById(Integer id) {
         return classRepository.findById(id).orElse(null);
+    }
+
+    public Class getByName(String className) {
+        return classRepository.findByName(className).orElse(null);
+    }
+
+    public List<Class> findAll() {
+        return classRepository.findAll();
     }
 }
