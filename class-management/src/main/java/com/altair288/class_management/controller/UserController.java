@@ -23,6 +23,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 @RestController
 @RequestMapping("/api/users")
@@ -73,6 +77,7 @@ public class UserController {
         }
     }
 
+    @Transactional
     @PostMapping("/register/student")
     public ResponseEntity<UserDTO> registerStudent(@RequestBody StudentRegisterDTO dto) {
         Student student = new Student();
@@ -109,6 +114,7 @@ public class UserController {
         return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
     }
 
+    @Transactional
     @PostMapping("/register/teacher")
     public ResponseEntity<UserDTO> registerTeacher(@RequestBody TeacherRegisterDTO dto) {
         Teacher teacher = new Teacher();
@@ -133,6 +139,7 @@ public class UserController {
         return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
     }
 
+    @Transactional
     @PostMapping("/register/parent")
     public ResponseEntity<UserDTO> registerParent(@RequestBody ParentRegisterDTO dto) {
         Parent parent = new Parent();
@@ -158,6 +165,19 @@ public class UserController {
         return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
     }
 
+    @GetMapping("/student/count")
+    public ResponseEntity<Long> getStudentCount() {
+        long count = studentService.count();
+        return ResponseEntity.ok(count);
+    }
+
+    @GetMapping("/teacher/count")
+    public ResponseEntity<Long> getTeacherCount() {
+        long count = teacherService.count();
+        return ResponseEntity.ok(count);
+    }
+    
+    
     @GetMapping("/current")
     public ResponseEntity<UserDTO> getCurrentUser() {
         // 获取当前登录用户的信息

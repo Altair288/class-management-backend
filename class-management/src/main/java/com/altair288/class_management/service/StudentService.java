@@ -17,5 +17,9 @@ public class StudentService {
     // Implement the logic to save the teacher entity
     // For example, if using JPA:
     return studentRepository.save(student);
-}
+    }
+
+    public long count() {
+        return studentRepository.count();
+    }
 }

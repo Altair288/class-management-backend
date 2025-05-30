@@ -18,4 +18,7 @@ public class TeacherService {
         // For example, if using JPA:
         return teacherRepository.save(teacher);
     }
+    public long count() {
+        return teacherRepository.count();
+    }
 }
