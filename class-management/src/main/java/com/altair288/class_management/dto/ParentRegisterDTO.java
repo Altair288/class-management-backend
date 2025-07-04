@@ -5,7 +5,7 @@ public class ParentRegisterDTO {
     private String password;
     private String phone;
     private String email;
-    private Integer studentId;
+    private String studentNo;
 
     public String getName() {
         return name;
@@ -39,11 +39,11 @@ public class ParentRegisterDTO {
         this.email = email;
     }
 
-    public Integer getStudentId() {
-        return studentId;
+    public String getStudentNo() {
+        return studentNo;
     }
 
-    public void setStudentId(Integer studentId) {
-        this.studentId = studentId;
+    public void setStudentNo(String studentNo) {
+        this.studentNo = studentNo;
     }
 }

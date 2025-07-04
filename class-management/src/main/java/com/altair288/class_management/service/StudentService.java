@@ -13,6 +13,11 @@ public class StudentService {
     public Student getStudentById(Integer id) {
         return studentRepository.findById(id).orElse(null);
     }
+
+    public Student getStudentByStudentNo(String studentNo) {
+        return studentRepository.findByStudentNo(studentNo)
+            .orElseThrow(() -> new IllegalArgumentException("未找到该学号对应的学生"));
+    }
     public Student save(Student student) {
     // Implement the logic to save the teacher entity
     // For example, if using JPA:

@@ -2,6 +2,7 @@ package com.altair288.class_management.dto;
 
 public class TeacherRegisterDTO {
     private String name;
+    private String username; // 新增
     private String teacherNo;
     private String password;
     private String phone;
@@ -13,6 +14,14 @@ public class TeacherRegisterDTO {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public String getTeacherNo() {

@@ -25,6 +25,10 @@ public class UserService {
         if (userRepository.existsByUsername(user.getUsername())) {
             throw new IllegalArgumentException("用户名已存在");
         }
+
+        if (userRepository.existsByIdentityNo(user.getIdentityNo())) {
+            throw new IllegalArgumentException("学号或工号已存在");
+        }
         
         PasswordValidator.validatePassword(user.getPassword());
         if (user.getPassword() == null || user.getPassword().isEmpty()) {
@@ -41,8 +45,12 @@ public class UserService {
             .orElseThrow(() -> new IllegalArgumentException("User not found"));
     }
 
-    public User getUserByUsername(String username) {
-        return userRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("User not Found"));
+    public User getUserByUsernameOrIdentityNo(String loginName) {
+        return userRepository.findByUsernameOrIdentityNo(loginName)
+            .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+    }
+
+    public PasswordEncoder getPasswordEncoder() {
+        return passwordEncoder;
     }
 }

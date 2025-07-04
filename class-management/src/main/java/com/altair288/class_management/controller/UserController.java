@@ -24,8 +24,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.dao.DataIntegrityViolationException;
 
 
 @RestController
@@ -51,25 +50,16 @@ public class UserController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequestDTO loginRequest) {
         try {
-            // 验证用户凭据
-            Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                    loginRequest.getUsername(), 
-                    loginRequest.getPassword()
-                )
-            );
-
-            // 设置认证信息
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            // 获取用户信息并返回
-            User user = userService.getUserByUsername(loginRequest.getUsername());
+            User user = userService.getUserByUsernameOrIdentityNo(loginRequest.getUsername());
+            // 密码校验
+            if (!userService.getPasswordEncoder().matches(loginRequest.getPassword(), user.getPassword())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("密码错误");
+            }
             UserDTO userDTO = new UserDTO(
                 user.getId(),
                 user.getUsername(),
                 user.getUserType()
             );
-
             return ResponseEntity.ok(userDTO);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -79,90 +69,116 @@ public class UserController {
 
     @Transactional
     @PostMapping("/register/student")
-    public ResponseEntity<UserDTO> registerStudent(@RequestBody StudentRegisterDTO dto) {
-        Student student = new Student();
-        student.setName(dto.getName());
-        student.setStudentNo(dto.getStudentNo());
-        student.setPhone(dto.getPhone());
-        student.setEmail(dto.getEmail());
+    public ResponseEntity<?> registerStudent(@RequestBody StudentRegisterDTO dto) {
+        try {
+            Student student = new Student();
+            student.setName(dto.getName());
+            student.setStudentNo(dto.getStudentNo());
+            student.setPhone(dto.getPhone() == null || dto.getPhone().isBlank() ? null : dto.getPhone());
+            student.setEmail(dto.getEmail() == null || dto.getEmail().isBlank() ? null : dto.getEmail());
 
-        com.altair288.class_management.model.Class clazz = null;
-        if (dto.getClassId() != null) {
-            clazz = classService.getById(dto.getClassId());
-        } else if (dto.getClassName() != null && !dto.getClassName().isEmpty()) {
-            clazz = classService.getByName(dto.getClassName());
-        }
-        if (clazz == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
-        }
-        student.setClazz(clazz);
+            com.altair288.class_management.model.Class clazz = null;
+            if (dto.getClassId() != null) {
+                clazz = classService.getById(dto.getClassId());
+            } else if (dto.getClassName() != null && !dto.getClassName().isEmpty()) {
+                clazz = classService.getByName(dto.getClassName());
+            }
+            if (clazz == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            }
+            student.setClazz(clazz);
 
-        student = studentService.save(student);
+            student = studentService.save(student);
 
-        User user = new User();
-        user.setUsername(dto.getStudentNo());
-        user.setPassword(dto.getPassword());
-        user.setUserType(User.UserType.STUDENT);
-        user.setRelatedId(student.getId());
-        User registeredUser = userService.registerUser(user);
+            User user = new User();
+            user.setUsername(dto.getName());
+            user.setIdentityNo(dto.getStudentNo());
+            user.setPassword(dto.getPassword());
+            user.setUserType(User.UserType.STUDENT);
+            user.setRelatedId(student.getId());
+            User registeredUser = userService.registerUser(user);
 
-        UserDTO userDTO = new UserDTO(
-            registeredUser.getId(),
-            registeredUser.getUsername(),
-            registeredUser.getUserType()
-        );
-        return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
+            UserDTO userDTO = new UserDTO(
+                registeredUser.getId(),
+                registeredUser.getUsername(),
+                registeredUser.getUserType()
+            );
+            return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
+        } catch (IllegalArgumentException e) {
+            throw e; // 直接抛出异常，让全局异常处理器处理
+            //return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } /* catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("注册失败：" + e.getMessage());
+        } */
     }
 
     @Transactional
     @PostMapping("/register/teacher")
-    public ResponseEntity<UserDTO> registerTeacher(@RequestBody TeacherRegisterDTO dto) {
-        Teacher teacher = new Teacher();
-        teacher.setName(dto.getName());
-        teacher.setTeacherNo(dto.getTeacherNo());
-        teacher.setPhone(dto.getPhone());
-        teacher.setEmail(dto.getEmail());
-        teacher = teacherService.save(teacher);
+    public ResponseEntity<?> registerTeacher(@RequestBody TeacherRegisterDTO dto) {
+        try {
+            Teacher teacher = new Teacher();
+            teacher.setName(dto.getName());
+            teacher.setTeacherNo(dto.getTeacherNo());
+            teacher.setPhone(dto.getPhone() == null || dto.getPhone().isBlank() ? null : dto.getPhone());
+            teacher.setEmail(dto.getEmail() == null || dto.getEmail().isBlank() ? null : dto.getEmail());
+            teacher = teacherService.save(teacher);
 
-        User user = new User();
-        user.setUsername(dto.getTeacherNo());
-        user.setPassword(dto.getPassword());
-        user.setUserType(User.UserType.TEACHER);
-        user.setRelatedId(teacher.getId());
-        User registeredUser = userService.registerUser(user);
+            // if (true) throw new RuntimeException("测试事务回滚");
 
-        UserDTO userDTO = new UserDTO(
-            registeredUser.getId(),
-            registeredUser.getUsername(),
-            registeredUser.getUserType()
-        );
-        return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
+            User user = new User();
+            user.setUsername(dto.getName());
+            user.setIdentityNo(dto.getTeacherNo());
+            user.setPassword(dto.getPassword());
+            user.setUserType(User.UserType.TEACHER);
+            user.setRelatedId(teacher.getId());
+            User registeredUser = userService.registerUser(user);
+
+            UserDTO userDTO = new UserDTO(
+                registeredUser.getId(),
+                registeredUser.getUsername(),
+                registeredUser.getUserType()
+            );
+            return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
+        } catch (IllegalArgumentException e) {
+            throw e; // 直接抛出异常，让全局异常处理器处理
+            // return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } /* catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("注册失败：" + e.getMessage());
+        }  */       
     }
 
     @Transactional
     @PostMapping("/register/parent")
-    public ResponseEntity<UserDTO> registerParent(@RequestBody ParentRegisterDTO dto) {
-        Parent parent = new Parent();
-        parent.setName(dto.getName());
-        parent.setPhone(dto.getPhone());
-        parent.setEmail(dto.getEmail());
-        Student student = studentService.getStudentById(dto.getStudentId());
-        parent.setStudent(student);
-        parent = parentService.save(parent);
+    public ResponseEntity<?> registerParent(@RequestBody ParentRegisterDTO dto) {
+        try {
+            Parent parent = new Parent();
+            parent.setName(dto.getName());
+            parent.setPhone(dto.getPhone() == null || dto.getPhone().isBlank() ? null : dto.getPhone());
+            parent.setEmail(dto.getEmail() == null || dto.getEmail().isBlank() ? null : dto.getEmail());
+            Student student = studentService.getStudentByStudentNo(dto.getStudentNo());
+            parent.setStudent(student);
+            parent = parentService.save(parent);
 
-        User user = new User();
-        user.setUsername(dto.getPhone());
-        user.setPassword(dto.getPassword());
-        user.setUserType(User.UserType.PARENT);
-        user.setRelatedId(parent.getId());
-        User registeredUser = userService.registerUser(user);
+            User user = new User();
+            user.setUsername(dto.getName());
+            user.setIdentityNo(dto.getPhone());
+            user.setPassword(dto.getPassword());
+            user.setUserType(User.UserType.PARENT);
+            user.setRelatedId(parent.getId());
+            User registeredUser = userService.registerUser(user);
 
-        UserDTO userDTO = new UserDTO(
-            registeredUser.getId(),
-            registeredUser.getUsername(),
-            registeredUser.getUserType()
-        );
-        return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
+            UserDTO userDTO = new UserDTO(
+                registeredUser.getId(),
+                registeredUser.getUsername(),
+                registeredUser.getUserType()
+            );
+            return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
+        } catch (IllegalArgumentException e) {
+            throw e; // 直接抛出异常，让全局异常处理器处理
+            // return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } /* catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("注册失败：" + e.getMessage());
+        } */
     }
 
     @GetMapping("/student/count")
@@ -182,7 +198,7 @@ public class UserController {
     public ResponseEntity<UserDTO> getCurrentUser() {
         // 获取当前登录用户的信息
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        User user = userService.getUserByUsername(authentication.getName());
+        User user = userService.getUserByUsernameOrIdentityNo(authentication.getName());
         UserDTO userDTO = new UserDTO(
             user.getId(),
             user.getUsername(),

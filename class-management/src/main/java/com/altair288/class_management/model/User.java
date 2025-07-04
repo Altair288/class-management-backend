@@ -33,6 +33,9 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private Set<UserRole> userRoles = new HashSet<>();
 
+    @Column(name = "identity_no", unique = true)
+    private String identityNo; // 新增字段
+
     public User() {
     }
         
@@ -55,9 +58,11 @@ public class User {
     public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
     public Set<UserRole> getUserRoles() { return userRoles; }
     public void setUserRoles(Set<UserRole> userRoles) { this.userRoles = userRoles; }
+    public String getIdentityNo() { return identityNo; }
+    public void setIdentityNo(String identity_no) { this.identityNo = identity_no; }
 
     public enum UserType {
-        STUDENT, 
+        STUDENT,  
         TEACHER, 
         PARENT, 
         ADMIN

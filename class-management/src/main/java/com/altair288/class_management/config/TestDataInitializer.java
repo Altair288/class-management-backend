@@ -89,6 +89,14 @@ public class TestDataInitializer implements CommandLineRunner {
             clazz4 = classService.save(clazz4);
 
             // 创建学生并设置班级
+            Student student1 = new Student();
+            student1.setName("王学生");
+            student1.setStudentNo("s001");
+            student1.setPhone("18915536571");
+            student1.setEmail("test@test.com");
+            student1.setClazz(clazz1); // 关键：设置class_id
+            student1 = studentService.save(student1);
+
             Student student = new Student();
             student.setName("李学生");
             student.setStudentNo("S2024001");
@@ -106,21 +114,32 @@ public class TestDataInitializer implements CommandLineRunner {
 
             // 创建用户并用学号/工号/手机号作为用户名
             User teacherUser = new User(null);
-            teacherUser.setUsername(teacher.getTeacherNo());
+            teacherUser.setUsername(teacher.getName());
+            teacherUser.setIdentityNo(teacher.getTeacherNo());
             teacherUser.setPassword(initialPassword);
             teacherUser.setUserType(User.UserType.TEACHER);
             teacherUser.setRelatedId(teacher.getId());
             teacherUser = userService.registerUser(teacherUser);
 
+            User studentUser1 = new User(null);
+            studentUser1.setUsername(student1.getName());
+            studentUser1.setIdentityNo(student1.getStudentNo());
+            studentUser1.setPassword(initialPassword);
+            studentUser1.setUserType(User.UserType.STUDENT);
+            studentUser1.setRelatedId(student1.getId());
+            studentUser1 = userService.registerUser(studentUser1);
+
             User studentUser = new User(null);
-            studentUser.setUsername(student.getStudentNo());
+            studentUser.setUsername(student.getName());
+            studentUser.setIdentityNo(student.getStudentNo());
             studentUser.setPassword(initialPassword);
             studentUser.setUserType(User.UserType.STUDENT);
             studentUser.setRelatedId(student.getId());
             studentUser = userService.registerUser(studentUser);
 
             User parentUser = new User(null);
-            parentUser.setUsername(parent.getPhone());
+            parentUser.setUsername(parent.getName());
+            parentUser.setIdentityNo(parent.getPhone());
             parentUser.setPassword(initialPassword);
             parentUser.setUserType(User.UserType.PARENT);
             parentUser.setRelatedId(parent.getId());
@@ -129,6 +148,7 @@ public class TestDataInitializer implements CommandLineRunner {
             // 管理员账号可保持原样
             User adminUser = new User(null);
             adminUser.setUsername("admin");
+            adminUser.setIdentityNo("admin");
             adminUser.setPassword(initialPassword);
             adminUser.setUserType(User.UserType.ADMIN);
             adminUser = userService.registerUser(adminUser);

@@ -175,12 +175,14 @@ CREATE TABLE `parent` (
 CREATE TABLE `user` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '用户ID',
   `username` varchar(50) NOT NULL COMMENT '用户名',
+  `identity_no` varchar(20) DEFAULT NULL COMMENT '学号',
   `password` varchar(255) NOT NULL COMMENT '密码（加密存储）',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `user_type` varchar(50) NOT NULL COMMENT '用户类型',
   `related_id` int DEFAULT NULL COMMENT '关联的身份ID',
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `identity_no` (`identity_no`),
   KEY `related_id` (`related_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
