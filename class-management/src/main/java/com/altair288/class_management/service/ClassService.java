@@ -32,4 +32,8 @@ public class ClassService {
     public List<Class> findAll() {
         return classRepository.findAll();
     }
+
+    public long count() {
+        return classRepository.count();
+    }
 }

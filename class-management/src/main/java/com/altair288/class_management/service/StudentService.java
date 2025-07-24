@@ -24,7 +24,11 @@ public class StudentService {
     return studentRepository.save(student);
     }
 
-    public long count() {
+    public Long count() {
         return studentRepository.count();
+    }
+
+    public Long countByClassId(Integer classId) {
+        return studentRepository.countByClazzId(classId);
     }
 }
