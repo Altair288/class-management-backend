@@ -13,6 +13,9 @@ public class Class {
     @Column(nullable = false, unique = true)
     private String name;
 
+    @Column(nullable = false, length = 20)
+    private String grade; // 新增年级字段
+
     @ManyToOne
     @JoinColumn(name = "teacher_id")
     private Teacher teacher;
@@ -26,6 +29,9 @@ public class Class {
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
+    public String getGrade() { return grade; }
+    public void setGrade(String grade) { this.grade = grade; }
 
     public Teacher getTeacher() { return teacher; }
     public void setTeacher(Teacher teacher) { this.teacher = teacher; }

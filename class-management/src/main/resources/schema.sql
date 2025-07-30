@@ -42,6 +42,7 @@ CREATE TABLE `class` (
   `name` varchar(50) NOT NULL COMMENT '班级名称',
   `teacher_id` int DEFAULT NULL COMMENT '班主任ID',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `grade` VARCHAR(20) NOT NULL DEFAULT '' COMMENT '年级',
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`),
   KEY `teacher_id` (`teacher_id`),

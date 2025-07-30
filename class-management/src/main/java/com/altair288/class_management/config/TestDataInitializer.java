@@ -69,24 +69,52 @@ public class TestDataInitializer implements CommandLineRunner {
             
             // 再创建班级，并设置教师
             com.altair288.class_management.model.Class clazz1 = new com.altair288.class_management.model.Class();
-            clazz1.setName("计算机网络1班");
+            clazz1.setName("21计算机网络1班");
             clazz1.setTeacher(teacher);
+            clazz1.setGrade("2021");
             clazz1 = classService.save(clazz1);
 
             com.altair288.class_management.model.Class clazz2 = new com.altair288.class_management.model.Class();
-            clazz2.setName("计算机网络2班");
+            clazz2.setName("21计算机网络2班");
             clazz2.setTeacher(teacher);
+            clazz2.setGrade("2021");
             clazz2 = classService.save(clazz2);
 
             com.altair288.class_management.model.Class clazz3 = new com.altair288.class_management.model.Class();
-            clazz3.setName("物联网技术1班");
+            clazz3.setName("21物联网技术1班");
             clazz3.setTeacher(teacher);
+            clazz3.setGrade("2021");
             clazz3 = classService.save(clazz3);
 
             com.altair288.class_management.model.Class clazz4 = new com.altair288.class_management.model.Class();
-            clazz4.setName("物联网技术2班");
+            clazz4.setName("21物联网技术2班");
             clazz4.setTeacher(teacher);
+            clazz4.setGrade("2021");
             clazz4 = classService.save(clazz4);
+
+            com.altair288.class_management.model.Class clazz5 = new com.altair288.class_management.model.Class();
+            clazz5.setName("22计算机网络1班");
+            clazz5.setTeacher(teacher);
+            clazz5.setGrade("2022");
+            clazz5 = classService.save(clazz5);
+
+            com.altair288.class_management.model.Class clazz6 = new com.altair288.class_management.model.Class();
+            clazz6.setName("22计算机网络2班");
+            clazz6.setTeacher(teacher);
+            clazz6.setGrade("2022");
+            clazz6 = classService.save(clazz6);
+
+            com.altair288.class_management.model.Class clazz7 = new com.altair288.class_management.model.Class();
+            clazz7.setName("22物联网技术1班");
+            clazz7.setTeacher(teacher);
+            clazz7.setGrade("2022");
+            clazz7 = classService.save(clazz7);
+
+            com.altair288.class_management.model.Class clazz8 = new com.altair288.class_management.model.Class();
+            clazz8.setName("22物联网技术2班");
+            clazz8.setTeacher(teacher);
+            clazz8.setGrade("2022");
+            clazz8 = classService.save(clazz8);
 
             // 创建学生并设置班级
             Student student1 = new Student();

@@ -222,7 +222,7 @@ public class UserController {
     public ResponseEntity<?> getAllClasses() {
         var classes = classService.findAll();
         var result = classes.stream()
-            .map(c -> new ClassSimpleDTO(c.getId(), c.getName()))
+            .map(c -> new ClassSimpleDTO(c.getId(), c.getName(), c.getGrade()))
             .toList();
         return ResponseEntity.ok(result);
     }
