@@ -3,13 +3,14 @@ package com.altair288.class_management.controller;
 import com.altair288.class_management.dto.ClassInfoDTO;
 import com.altair288.class_management.dto.ClassSimpleDTO;
 import com.altair288.class_management.dto.ClassStudentCountDTO;
+import com.altair288.class_management.dto.CreateClassDTO;
 import com.altair288.class_management.model.Class;
+import com.altair288.class_management.model.Teacher;
 import com.altair288.class_management.service.ClassService;
 import com.altair288.class_management.service.StudentService;
+import com.altair288.class_management.service.TeacherService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.sql.Timestamp;
 import java.util.List;
@@ -21,10 +22,12 @@ public class ClassController {
 
     private final ClassService classService;
     private final StudentService studentService;
+    private final TeacherService teacherService;
 
-    public ClassController(ClassService classService, StudentService studentService) {
+    public ClassController(ClassService classService, StudentService studentService, TeacherService teacherService) {
         this.classService = classService;
         this.studentService = studentService;
+        this.teacherService = teacherService;
     }
 
     // 查询所有班级详细信息
@@ -71,5 +74,24 @@ public class ClassController {
             return new ClassStudentCountDTO(c.getId(), c.getName(), count);
         }).toList();
         return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/create")
+    public ResponseEntity<?> createClass(@RequestBody CreateClassDTO dto) {
+        if (dto.getName() == null || dto.getName().isBlank()) {
+            return ResponseEntity.badRequest().body("班级名称不能为空");
+        }
+        if (dto.getGrade() == null || dto.getGrade().isBlank()) {
+            return ResponseEntity.badRequest().body("年级不能为空");
+        }
+        Class clazz = new Class();
+        clazz.setName(dto.getName());
+        clazz.setGrade(dto.getGrade());
+        if (dto.getTeacherId() != null) {
+            Teacher teacher = teacherService.getById(dto.getTeacherId());
+            clazz.setTeacher(teacher);
+        }
+        classService.save(clazz);
+        return ResponseEntity.ok().build();
     }
 }

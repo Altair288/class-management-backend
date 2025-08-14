@@ -26,6 +26,12 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import com.altair288.class_management.dto.TeacherDTO;
+import com.altair288.class_management.model.Teacher;
+import com.altair288.class_management.service.TeacherService;
+
+import java.util.List;
+
 
 @RestController
 @RequestMapping("/api/users")
@@ -193,7 +199,16 @@ public class UserController {
         return ResponseEntity.ok(count);
     }
     
-    
+    @GetMapping("/teacher/all")
+    public ResponseEntity<List<TeacherDTO>> getAllTeachers() {
+        List<Teacher> teachers = teacherService.findAll();
+        List<TeacherDTO> result = teachers.stream()
+            .map(t -> new TeacherDTO(t.getId(), t.getName()))
+            .toList();
+        return ResponseEntity.ok(result);
+    }
+
+
     @GetMapping("/current")
     public ResponseEntity<UserDTO> getCurrentUser() {
         // 获取当前登录用户的信息
