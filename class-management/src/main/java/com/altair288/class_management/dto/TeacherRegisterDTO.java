@@ -39,7 +39,7 @@ public class TeacherRegisterDTO {
     public void setPassword(String password) {
         this.password = password;
     }
-    
+
     public String getPhone() {
         return phone;
     }

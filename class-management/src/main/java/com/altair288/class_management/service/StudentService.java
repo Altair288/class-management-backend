@@ -4,6 +4,7 @@ import com.altair288.class_management.model.Student;
 import com.altair288.class_management.repository.StudentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import java.util.List;
 
 @Service
 public class StudentService {
@@ -31,4 +32,8 @@ public class StudentService {
     public Long countByClassId(Integer classId) {
         return studentRepository.countByClazzId(classId);
     }
+
+    public List<Student> findByClassId(Integer classId) {
+    return studentRepository.findByClazzId(classId);
+}
 }

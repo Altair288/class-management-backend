@@ -41,7 +41,7 @@ public class StudentRegisterDTO {
     public void setPassword(String password) {
         this.password = password;
     }
-    
+
     public String getPhone() {
         return phone;
     }
@@ -69,6 +69,7 @@ public class StudentRegisterDTO {
     public String getClassName() {
         return className;
     }
+
     public void setClassName(String className) {
         this.className = className;
     }

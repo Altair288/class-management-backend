@@ -4,7 +4,10 @@ import com.altair288.class_management.dto.ClassInfoDTO;
 import com.altair288.class_management.dto.ClassSimpleDTO;
 import com.altair288.class_management.dto.ClassStudentCountDTO;
 import com.altair288.class_management.dto.CreateClassDTO;
+import com.altair288.class_management.dto.StudentDTO;
+import com.altair288.class_management.dto.AddStudentDTO;
 import com.altair288.class_management.model.Class;
+import com.altair288.class_management.model.Student;
 import com.altair288.class_management.model.Teacher;
 import com.altair288.class_management.service.ClassService;
 import com.altair288.class_management.service.StudentService;
@@ -92,6 +95,28 @@ public class ClassController {
             clazz.setTeacher(teacher);
         }
         classService.save(clazz);
+        return ResponseEntity.ok().build();
+    }
+
+    // 查询班级成员
+    @GetMapping("/{classId}/members")
+    public ResponseEntity<List<StudentDTO>> getClassMembers(@PathVariable Integer classId) {
+        List<Student> students = studentService.findByClassId(classId);
+        List<StudentDTO> result = students.stream()
+            .map(s -> new StudentDTO(s.getId(), s.getName(), s.getStudentNo()))
+            .toList();
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/{classId}/add-student")
+    public ResponseEntity<?> addStudentToClass(@PathVariable Integer classId, @RequestBody AddStudentDTO dto) {
+        Student student = studentService.getStudentById(dto.getStudentId());
+        Class clazz = classService.getById(classId);
+        if (student == null || clazz == null) {
+            return ResponseEntity.badRequest().body("学生或班级不存在");
+        }
+        student.setClazz(clazz);
+        studentService.save(student);
         return ResponseEntity.ok().build();
     }
 }

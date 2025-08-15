@@ -1,14 +1,14 @@
 package com.altair288.class_management.dto;
 
-public class ClassSimpleDTO {
+public class StudentDTO {
     private Integer id;
     private String name;
-    private String grade; // 新增
+    private String studentNo;
 
-    public ClassSimpleDTO(Integer id, String name, String grade) {
+    public StudentDTO(Integer id, String name, String studentNo) {
         this.id = id;
         this.name = name;
-        this.grade = grade;
+        this.studentNo = studentNo;
     }
 
     public Integer getId() {
@@ -19,7 +19,7 @@ public class ClassSimpleDTO {
         return name;
     }
 
-    public String getGrade() {
-        return grade;
+    public String getStudentNo() {
+        return studentNo;
     }
 }

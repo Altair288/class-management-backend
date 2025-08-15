@@ -8,6 +8,12 @@ public class TeacherDTO {
         this.id = id;
         this.name = name;
     }
-    public Integer getId() { return id; }
-    public String getName() { return name; }
+
+    public Integer getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
 }
