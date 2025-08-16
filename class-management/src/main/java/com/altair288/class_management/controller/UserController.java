@@ -7,6 +7,7 @@ import com.altair288.class_management.dto.UserDTO;
 import com.altair288.class_management.dto.StudentRegisterDTO;
 import com.altair288.class_management.dto.TeacherRegisterDTO;
 import com.altair288.class_management.dto.ParentRegisterDTO;
+import com.altair288.class_management.dto.StudentDTO;
 import com.altair288.class_management.model.User;
 import com.altair288.class_management.model.Student;
 import com.altair288.class_management.model.Parent;
@@ -191,6 +192,16 @@ public class UserController {
     public ResponseEntity<Long> getStudentCount() {
         long count = studentService.count();
         return ResponseEntity.ok(count);
+    }
+
+    @GetMapping("/student/by-no")
+    public ResponseEntity<?> getStudentByNo(@RequestParam String studentNo) {
+        Student student = studentService.getStudentByStudentNo(studentNo);
+        if (student == null) {
+            return ResponseEntity.status(404).body("未找到该学号");
+        }
+        StudentDTO dto = new StudentDTO(student.getId(), student.getName(), student.getStudentNo());
+        return ResponseEntity.ok(dto);
     }
 
     @GetMapping("/teacher/count")

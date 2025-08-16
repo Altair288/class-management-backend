@@ -14,10 +14,10 @@ import com.altair288.class_management.service.StudentService;
 import com.altair288.class_management.service.TeacherService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.sql.Timestamp;
 import java.util.List;
-
 
 @RestController
 @RequestMapping("/api/class")
@@ -42,12 +42,11 @@ public class ClassController {
             // createdAt 类型转换
             Timestamp createdAt = c.getCreatedAt() == null ? null : new Timestamp(c.getCreatedAt().getTime());
             return new ClassInfoDTO(
-                c.getId(),
-                c.getName(),
-                c.getGrade(), // 新增
-                teacherName,
-                createdAt
-            );
+                    c.getId(),
+                    c.getName(),
+                    c.getGrade(), // 新增
+                    teacherName,
+                    createdAt);
         }).toList();
         return ResponseEntity.ok(result);
     }
@@ -57,8 +56,8 @@ public class ClassController {
     public ResponseEntity<List<ClassSimpleDTO>> getSimpleClasses() {
         List<Class> classes = classService.findAll();
         List<ClassSimpleDTO> result = classes.stream()
-            .map(c -> new ClassSimpleDTO(c.getId(), c.getName(), c.getGrade()))
-            .toList();
+                .map(c -> new ClassSimpleDTO(c.getId(), c.getName(), c.getGrade()))
+                .toList();
         return ResponseEntity.ok(result);
     }
 
@@ -103,8 +102,8 @@ public class ClassController {
     public ResponseEntity<List<StudentDTO>> getClassMembers(@PathVariable Integer classId) {
         List<Student> students = studentService.findByClassId(classId);
         List<StudentDTO> result = students.stream()
-            .map(s -> new StudentDTO(s.getId(), s.getName(), s.getStudentNo()))
-            .toList();
+                .map(s -> new StudentDTO(s.getId(), s.getName(), s.getStudentNo()))
+                .toList();
         return ResponseEntity.ok(result);
     }
 
@@ -118,5 +117,15 @@ public class ClassController {
         student.setClazz(clazz);
         studentService.save(student);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{classId}/import-students")
+    public ResponseEntity<?> importStudents(@PathVariable Integer classId, @RequestParam("file") MultipartFile file) {
+        try {
+            studentService.importStudentsFromExcel(classId, file);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("导入失败：" + e.getMessage());
+        }
     }
 }
