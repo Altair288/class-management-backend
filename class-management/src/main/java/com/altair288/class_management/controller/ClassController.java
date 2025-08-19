@@ -128,4 +128,16 @@ public class ClassController {
             return ResponseEntity.badRequest().body("导入失败：" + e.getMessage());
         }
     }
+
+    @PostMapping("/{classId}/remove-student")
+    public ResponseEntity<?> removeStudentFromClass(@PathVariable Integer classId, @RequestBody AddStudentDTO dto) {
+        Student student = studentService.getStudentById(dto.getStudentId());
+        if (student == null) {
+            return ResponseEntity.badRequest().body("学生不存在");
+        }
+        // 只移除班级归属，不删除学生
+        student.setClazz(null);
+        studentService.save(student);
+        return ResponseEntity.ok().build();
+    }
 }

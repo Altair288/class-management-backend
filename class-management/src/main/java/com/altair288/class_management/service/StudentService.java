@@ -24,7 +24,8 @@ public class StudentService {
 
     public void importStudentsFromExcel(Integer classId, MultipartFile file) throws Exception {
         Class clazz = classService.getById(classId);
-        if (clazz == null) throw new IllegalArgumentException("班级不存在");
+        if (clazz == null)
+            throw new IllegalArgumentException("班级不存在");
 
         Workbook workbook = WorkbookFactory.create(file.getInputStream());
         Sheet sheet = workbook.getSheetAt(0);
@@ -32,12 +33,13 @@ public class StudentService {
         int rowNum = 0;
         int studentSeq = getMaxStudentSeq(clazz); // 获取当前班级已有最大序号
         for (Row row : sheet) {
-            if (rowNum++ == 0) continue; // 跳过表头
+            if (rowNum++ == 0)
+                continue; // 跳过表头
 
             String name = getCellString(row.getCell(0));
-            String phone = getCellString(row.getCell(1));
-            String email = getCellString(row.getCell(2));
-            String studentNo = getCellString(row.getCell(3));
+            String studentNo = getCellString(row.getCell(1));
+            String phone = getCellString(row.getCell(2));
+            String email = getCellString(row.getCell(3));
 
             // 自动生成学号
             if (studentNo == null || studentNo.isBlank()) {
@@ -72,7 +74,8 @@ public class StudentService {
     }
 
     private String getCellString(Cell cell) {
-        if (cell == null) return null;
+        if (cell == null)
+            return null;
         switch (cell.getCellType()) {
             case STRING:
                 return cell.getStringCellValue().trim();
@@ -118,8 +121,10 @@ public class StudentService {
             if (no != null && no.startsWith(grade + classNo) && no.length() >= 7) {
                 try {
                     int seq = Integer.parseInt(no.substring(5, 7));
-                    if (seq > max) max = seq;
-                } catch (Exception ignored) {}
+                    if (seq > max)
+                        max = seq;
+                } catch (Exception ignored) {
+                }
             }
         }
         return max;
@@ -138,12 +143,13 @@ public class StudentService {
 
     public Student getStudentByStudentNo(String studentNo) {
         return studentRepository.findByStudentNo(studentNo)
-            .orElseThrow(() -> new IllegalArgumentException("未找到该学号对应的学生"));
+                .orElseThrow(() -> new IllegalArgumentException("未找到该学号对应的学生"));
     }
+
     public Student save(Student student) {
-    // Implement the logic to save the teacher entity
-    // For example, if using JPA:
-    return studentRepository.save(student);
+        // Implement the logic to save the teacher entity
+        // For example, if using JPA:
+        return studentRepository.save(student);
     }
 
     public Long count() {
