@@ -102,7 +102,13 @@ public class ClassController {
     public ResponseEntity<List<StudentDTO>> getClassMembers(@PathVariable Integer classId) {
         List<Student> students = studentService.findByClassId(classId);
         List<StudentDTO> result = students.stream()
-                .map(s -> new StudentDTO(s.getId(), s.getName(), s.getStudentNo()))
+                .map(s -> new StudentDTO(
+                        s.getId(),
+                        s.getName(),
+                        s.getStudentNo(),
+                        s.getPhone(),          // 新增
+                        s.getEmail()           // 新增
+                ))
                 .toList();
         return ResponseEntity.ok(result);
     }
@@ -135,9 +141,35 @@ public class ClassController {
         if (student == null) {
             return ResponseEntity.badRequest().body("学生不存在");
         }
-        // 只移除班级归属，不删除学生
-        student.setClazz(null);
+        // 转移到“未分班”虚拟班级，避免 class_id 为 NULL 触发数据库约束
+        Class unassigned = classService.getOrCreateUnassignedClass();
+        student.setClazz(unassigned);
         studentService.save(student);
         return ResponseEntity.ok().build();
+    }
+
+    // 未分班学生列表
+    @GetMapping("/unassigned/members")
+    public ResponseEntity<List<StudentDTO>> getUnassignedStudents() {
+        Class unassigned = classService.getOrCreateUnassignedClass();
+        List<Student> students = studentService.findByClassId(unassigned.getId());
+        List<StudentDTO> result = students.stream()
+                .map(s -> new StudentDTO(
+                        s.getId(),
+                        s.getName(),
+                        s.getStudentNo(),
+                        s.getPhone(),          // 新增
+                        s.getEmail()           // 新增
+                ))
+                .toList();
+        return ResponseEntity.ok(result);
+    }
+
+    // 未分班学生数量
+    @GetMapping("/unassigned/count")
+    public ResponseEntity<Long> getUnassignedStudentCount() {
+        Class unassigned = classService.getOrCreateUnassignedClass();
+        long count = studentService.countByClassId(unassigned.getId());
+        return ResponseEntity.ok(count);
     }
 }

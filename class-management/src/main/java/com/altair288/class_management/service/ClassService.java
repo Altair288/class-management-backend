@@ -36,4 +36,16 @@ public class ClassService {
     public long count() {
         return classRepository.count();
     }
+
+    // 新增：获取或创建“未分班”班级（名称唯一）
+    public Class getOrCreateUnassignedClass() {
+        return classRepository.findByName("未分班")
+                .orElseGet(() -> {
+                    Class c = new Class();
+                    c.setName("未分班");
+                    c.setGrade("N/A"); // 年级占位，按需调整
+                    // teacher 可为 null
+                    return classRepository.save(c);
+                });
+    }
 }
