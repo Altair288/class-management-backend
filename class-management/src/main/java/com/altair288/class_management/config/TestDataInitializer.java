@@ -2,18 +2,21 @@
 package com.altair288.class_management.config;
 
 import com.altair288.class_management.model.*;
+import com.altair288.class_management.dto.CreditItemDTO;
+import com.altair288.class_management.repository.CreditItemRepository;
 import com.altair288.class_management.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import jakarta.annotation.PostConstruct;
+
 @Component
 @Profile("dev") // 只在开发环境中启用
-public class TestDataInitializer implements CommandLineRunner {
+public class TestDataInitializer {
 
     private static final Logger logger = LoggerFactory.getLogger(TestDataInitializer.class);
 
@@ -26,9 +29,27 @@ public class TestDataInitializer implements CommandLineRunner {
     @Autowired private StudentService studentService;
     @Autowired private ParentService parentService;
     @Autowired private ClassService classService;
+    @Autowired private StudentCreditService studentCreditService;
+    @Autowired private CreditItemRepository creditItemRepository;
+    private final CreditItemService creditItemService;
 
-    @Override
-    public void run(String... args) {
+    public TestDataInitializer(UserService userService, RoleService roleService, PermissionService permissionService, UserRoleService userRoleService, RolePermissionService rolePermissionService, TeacherService teacherService, StudentService studentService, ParentService parentService, ClassService classService, StudentCreditService studentCreditService, CreditItemRepository creditItemRepository, CreditItemService creditItemService) {
+        this.userService = userService;
+        this.roleService = roleService;
+        this.permissionService = permissionService;
+        this.userRoleService = userRoleService;
+        this.rolePermissionService = rolePermissionService;
+        this.teacherService = teacherService;
+        this.studentService = studentService;
+        this.parentService = parentService;
+        this.classService = classService;
+        this.studentCreditService = studentCreditService;
+        this.creditItemRepository = creditItemRepository;
+        this.creditItemService = creditItemService;
+    }
+
+    @PostConstruct
+    public void init() {
         try {
             final String initialPassword = "Test@123456";
             // 创建角色
@@ -199,6 +220,99 @@ public class TestDataInitializer implements CommandLineRunner {
             teacherViewGrades.setPermission(viewGradesPermission);
             teacherViewGrades.setGrantedBy(adminUser);
             rolePermissionService.assignPermissionToRole(teacherViewGrades);
+
+            // ====== 学分模块测试数据 ======
+            // 额外创建两个班级以匹配前端截图风格
+            com.altair288.class_management.model.Class cls2024a = new com.altair288.class_management.model.Class();
+            cls2024a.setName("计算机2024-1班");
+            cls2024a.setTeacher(teacher);
+            cls2024a.setGrade("2024");
+            cls2024a = classService.save(cls2024a);
+
+            com.altair288.class_management.model.Class cls2024b = new com.altair288.class_management.model.Class();
+            cls2024b.setName("计算机2024-2班");
+            cls2024b.setTeacher(teacher);
+            cls2024b.setGrade("2024");
+            cls2024b = classService.save(cls2024b);
+
+            // 新增示例学生（与截图一致的姓名/学号/班级）
+            Student sZhang3 = new Student();
+            sZhang3.setName("张三");
+            sZhang3.setStudentNo("2024001");
+            sZhang3.setClazz(cls2024a);
+            sZhang3 = studentService.save(sZhang3);
+
+            Student sLi4 = new Student();
+            sLi4.setName("李四");
+            sLi4.setStudentNo("2024002");
+            sLi4.setClazz(cls2024a);
+            sLi4 = studentService.save(sLi4);
+
+            Student sWang5 = new Student();
+            sWang5.setName("王五");
+            sWang5.setStudentNo("2024003");
+            sWang5.setClazz(cls2024b);
+            sWang5 = studentService.save(sWang5);
+
+            Student sZhao6 = new Student();
+            sZhao6.setName("赵六");
+            sZhao6.setStudentNo("2024004");
+            sZhao6.setClazz(cls2024b);
+            sZhao6 = studentService.save(sZhao6);
+
+            // 创建五个学分配置项（每类仅一个）
+            // 若重复运行（dev多次启动），存在则跳过创建
+            if (!creditItemRepository.existsByCategory("德")) {
+                creditItemService.create(new CreditItemDTO(null, "德", "德育", 60.0, 100.0, true, "德育分"));
+            }
+            if (!creditItemRepository.existsByCategory("智")) {
+                creditItemService.create(new CreditItemDTO(null, "智", "智育", 60.0, 100.0, true, "智育分"));
+            }
+            if (!creditItemRepository.existsByCategory("体")) {
+                creditItemService.create(new CreditItemDTO(null, "体", "体育", 60.0, 100.0, true, "体育分"));
+            }
+            if (!creditItemRepository.existsByCategory("美")) {
+                creditItemService.create(new CreditItemDTO(null, "美", "美育", 60.0, 100.0, true, "美育分"));
+            }
+            if (!creditItemRepository.existsByCategory("劳")) {
+                creditItemService.create(new CreditItemDTO(null, "劳", "劳动", 60.0, 100.0, true, "劳动分"));
+            }
+
+            // 获取每个类别的唯一配置项 id
+            Integer deId = creditItemRepository.findAllByCategory("德").get(0).getId();
+            Integer zhiId = creditItemRepository.findAllByCategory("智").get(0).getId();
+            Integer tiId = creditItemRepository.findAllByCategory("体").get(0).getId();
+            Integer meiId = creditItemRepository.findAllByCategory("美").get(0).getId();
+            Integer laoId = creditItemRepository.findAllByCategory("劳").get(0).getId();
+
+            // 设置每个学生的分值（参考截图示例）
+            // 张三：85/92/78/88/85 -> 总分 428 -> excellent
+            studentCreditService.setScore(sZhang3.getId(), deId, 85.0);
+            studentCreditService.setScore(sZhang3.getId(), zhiId, 92.0);
+            studentCreditService.setScore(sZhang3.getId(), tiId, 78.0);
+            studentCreditService.setScore(sZhang3.getId(), meiId, 88.0);
+            studentCreditService.setScore(sZhang3.getId(), laoId, 85.0);
+
+            // 李四：75/88/82/76/80 -> 401 -> good
+            studentCreditService.setScore(sLi4.getId(), deId, 75.0);
+            studentCreditService.setScore(sLi4.getId(), zhiId, 88.0);
+            studentCreditService.setScore(sLi4.getId(), tiId, 82.0);
+            studentCreditService.setScore(sLi4.getId(), meiId, 76.0);
+            studentCreditService.setScore(sLi4.getId(), laoId, 80.0);
+
+            // 王五：60/70/65/58/62 -> 315 -> warning
+            studentCreditService.setScore(sWang5.getId(), deId, 60.0);
+            studentCreditService.setScore(sWang5.getId(), zhiId, 70.0);
+            studentCreditService.setScore(sWang5.getId(), tiId, 65.0);
+            studentCreditService.setScore(sWang5.getId(), meiId, 58.0);
+            studentCreditService.setScore(sWang5.getId(), laoId, 62.0);
+
+            // 赵六：45/55/50/48/52 -> 250 -> danger
+            studentCreditService.setScore(sZhao6.getId(), deId, 45.0);
+            studentCreditService.setScore(sZhao6.getId(), zhiId, 55.0);
+            studentCreditService.setScore(sZhao6.getId(), tiId, 50.0);
+            studentCreditService.setScore(sZhao6.getId(), meiId, 48.0);
+            studentCreditService.setScore(sZhao6.getId(), laoId, 52.0);
 
             logger.info("测试数据初始化完成,请使用用户名和密码登录：\n" +
                     "管理员账号：admin, 密码：" + initialPassword + "\n" +

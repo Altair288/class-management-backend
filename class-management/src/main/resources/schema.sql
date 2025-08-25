@@ -134,25 +134,53 @@ CREATE TABLE `leave_request` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
--- class_management.moral_score definition
+-- class_management.credit definition
 
-CREATE TABLE `moral_score` (
-  `id` int NOT NULL AUTO_INCREMENT COMMENT '记录ID',
-  `student_id` int NOT NULL COMMENT '学生ID',
-  `teacher_id` int DEFAULT NULL COMMENT '评分教师ID',
-  `activity_name` varchar(100) NOT NULL COMMENT '活动名称',
-  `score` decimal(5,2) NOT NULL COMMENT '获得学分',
-  `status` enum('待审核','已通过','已拒绝') DEFAULT '待审核' COMMENT '审批状态',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '提交时间',
-  `reviewed_at` timestamp NULL DEFAULT NULL COMMENT '审核时间',
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
+
+-- 学分配置项表：德/智/体/美/劳各类下可配置多个项目
+CREATE TABLE IF NOT EXISTS `credit_item` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '配置项ID',
+  `category` enum('德','智','体','美','劳') NOT NULL COMMENT '类别',
+  `item_name` varchar(100) NOT NULL COMMENT '项目名称',
+  `initial_score` decimal(5,2) NOT NULL DEFAULT 0 COMMENT '初始分值',
+  `max_score` decimal(5,2) NOT NULL DEFAULT 100 COMMENT '最大分值',
+  `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '启用状态: 1启用 0停用',
+  `description` text NULL COMMENT '描述',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
-  KEY `student_id` (`student_id`),
-  KEY `teacher_id` (`teacher_id`),
-  CONSTRAINT `moral_score_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `student` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `moral_score_ibfk_2` FOREIGN KEY (`teacher_id`) REFERENCES `teacher` (`id`) ON DELETE SET NULL
+  UNIQUE KEY `uk_category_name` (`category`, `item_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- 学生学分表：每个学生在每个项目下的一条记录
+CREATE TABLE IF NOT EXISTS `student_credit` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `student_id` int NOT NULL COMMENT '学生ID',
+  `credit_item_id` int NOT NULL COMMENT '配置项ID',
+  `score` decimal(5,2) NOT NULL DEFAULT 0 COMMENT '当前得分',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_student_item` (`student_id`, `credit_item_id`),
+  KEY `idx_credit_item` (`credit_item_id`),
+  CONSTRAINT `fk_sc_student` FOREIGN KEY (`student_id`) REFERENCES `student` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_sc_item` FOREIGN KEY (`credit_item_id`) REFERENCES `credit_item` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 学分子项目表：隶属于主项目（德/智/体/美/劳之一）
+CREATE TABLE IF NOT EXISTS `credit_subitem` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `item_id` INT NOT NULL COMMENT '关联 credit_item 主项目 ID',
+  `subitem_name` VARCHAR(100) NOT NULL COMMENT '子项目名称',
+  `initial_score` DECIMAL(5,2) NOT NULL DEFAULT 0 COMMENT '子项目初始分值',
+  `max_score` DECIMAL(5,2) NOT NULL DEFAULT 100 COMMENT '子项目最高得分',
+  `weight` DECIMAL(5,4) NOT NULL DEFAULT 0 COMMENT '在父项目中的权重比例（0–1），暂不参与计算，仅配置',
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '启用状态',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_item_subitem` (`item_id`, `subitem_name`),
+  CONSTRAINT `fk_cs_item` FOREIGN KEY (`item_id`) REFERENCES `credit_item`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- class_management.parent definition
 
