@@ -42,10 +42,7 @@ public class CreditSubitemController {
     // GET /api/credits/subitems/{id}
     @GetMapping("/subitems/{id}")
     public ResponseEntity<CreditSubitemDTO> getOne(@PathVariable Integer id) {
-        // 复用 update 前的读取逻辑：list 中无单个获取，这里简单从服务层补一个方法也可
-        // 为保持最小改动，这里可先通过兼容：如果有需要可在 service 加 getById
-        // 暂用 listByItem 不合适，建议在 service 添加 getById
-        throw new UnsupportedOperationException("请在 CreditSubitemService 中实现 getById 并在此处调用");
+    return ResponseEntity.ok(subitemService.getById(id));
     }
 
     // 更新（与现有前端风格一致，用 POST）

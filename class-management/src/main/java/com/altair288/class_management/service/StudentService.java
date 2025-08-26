@@ -5,12 +5,14 @@ import org.springframework.web.multipart.MultipartFile;
 import com.altair288.class_management.model.Class;
 import com.altair288.class_management.model.Student;
 import com.altair288.class_management.model.User;
-import com.altair288.class_management.service.ClassService;
-import com.altair288.class_management.service.UserService;
-import com.altair288.class_management.model.Student;
+import com.altair288.class_management.model.CreditItem;
+import com.altair288.class_management.model.StudentCredit;
 import com.altair288.class_management.repository.StudentRepository;
+import com.altair288.class_management.repository.CreditItemRepository;
+import com.altair288.class_management.repository.StudentCreditRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 
 @Service
@@ -21,6 +23,10 @@ public class StudentService {
     private ClassService classService;
     @Autowired
     private UserService userService;
+    @Autowired
+    private CreditItemRepository creditItemRepository;
+    @Autowired
+    private StudentCreditRepository studentCreditRepository;
 
     public void importStudentsFromExcel(Integer classId, MultipartFile file) throws Exception {
         Class clazz = classService.getById(classId);
@@ -146,10 +152,22 @@ public class StudentService {
                 .orElseThrow(() -> new IllegalArgumentException("未找到该学号对应的学生"));
     }
 
+    @Transactional
     public Student save(Student student) {
-        // Implement the logic to save the teacher entity
-        // For example, if using JPA:
-        return studentRepository.save(student);
+        boolean isNew = (student.getId() == null);
+        Student saved = studentRepository.save(student);
+        // 新增学生时，为所有已存在的主项目初始化学生学分记录
+        if (isNew) {
+            List<CreditItem> items = creditItemRepository.findAll();
+            for (CreditItem item : items) {
+                StudentCredit sc = new StudentCredit();
+                sc.setStudent(saved);
+                sc.setCreditItem(item);
+                sc.setScore(item.getInitialScore() == null ? 0.0 : item.getInitialScore());
+                studentCreditRepository.save(sc);
+            }
+        }
+        return saved;
     }
 
     public Long count() {

@@ -13,6 +13,8 @@ public interface CreditItemRepository extends JpaRepository<CreditItem, Integer>
     List<CreditItem> findAllByCategory(String category);
     List<CreditItem> findAllByEnabledTrue();
     boolean existsByCategory(String category);
+    Optional<CreditItem> findByCategory(String category);
+    boolean existsByItemName(String itemName);
 
     @Query("select c from CreditItem c where (:category is null or c.category = :category) order by c.id desc")
     List<CreditItem> findByCategoryOptional(@Param("category") String category);
