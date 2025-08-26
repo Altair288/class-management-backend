@@ -263,19 +263,19 @@ public class TestDataInitializer {
             // 创建五个学分配置项（每类仅一个）
             // 若重复运行（dev多次启动），存在则跳过创建
             if (!creditItemRepository.existsByCategory("德")) {
-                creditItemService.create(new CreditItemDTO(null, "德", "德育", 60.0, 100.0, true, "德育分"));
+                creditItemService.create(new CreditItemDTO(null, "德", "德育", 60.0, 100.0, true, "思想品德与道德修养"));
             }
             if (!creditItemRepository.existsByCategory("智")) {
-                creditItemService.create(new CreditItemDTO(null, "智", "智育", 60.0, 100.0, true, "智育分"));
+                creditItemService.create(new CreditItemDTO(null, "智", "智育", 60.0, 100.0, true, "学业成绩与知识掌握"));
             }
             if (!creditItemRepository.existsByCategory("体")) {
-                creditItemService.create(new CreditItemDTO(null, "体", "体育", 60.0, 100.0, true, "体育分"));
+                creditItemService.create(new CreditItemDTO(null, "体", "体育", 60.0, 100.0, true, "身体素质与健康状况"));
             }
             if (!creditItemRepository.existsByCategory("美")) {
-                creditItemService.create(new CreditItemDTO(null, "美", "美育", 60.0, 100.0, true, "美育分"));
+                creditItemService.create(new CreditItemDTO(null, "美", "美育", 60.0, 100.0, true, "艺术修养与审美能力"));
             }
             if (!creditItemRepository.existsByCategory("劳")) {
-                creditItemService.create(new CreditItemDTO(null, "劳", "劳动", 60.0, 100.0, true, "劳动分"));
+                creditItemService.create(new CreditItemDTO(null, "劳", "劳育", 60.0, 100.0, true, "劳动技能与实践能力"));
             }
 
             // 获取每个类别的唯一配置项 id
