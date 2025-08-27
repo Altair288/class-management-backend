@@ -28,6 +28,7 @@ public class StudentService {
     @Autowired
     private StudentCreditRepository studentCreditRepository;
 
+    @Transactional
     public void importStudentsFromExcel(Integer classId, MultipartFile file) throws Exception {
         Class clazz = classService.getById(classId);
         if (clazz == null)
@@ -65,7 +66,8 @@ public class StudentService {
             student.setEmail(email);
             student.setStudentNo(studentNo);
             student.setClazz(clazz);
-            student = studentRepository.save(student);
+            // 使用本类 save()，触发“新增学生时初始化学分”的逻辑
+            student = this.save(student);
 
             // 创建用户
             User user = new User();

@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/credits")
@@ -98,5 +99,17 @@ public class CreditsController {
     public ResponseEntity<String> setStudentScore(@PathVariable Integer studentId, @RequestBody SetScoreRequest req) {
         studentCreditService.setScore(studentId, req.creditItemId, req.value);
         return ResponseEntity.ok("OK");
+    }
+
+    // 将主项目的新规则应用到所有学生
+    public static class ApplyRuleRequest { public String mode; }
+    @PostMapping("/items/{itemId}/apply")
+    public ResponseEntity<Map<String, Object>> applyItemRule(@PathVariable Integer itemId, @RequestBody(required = false) ApplyRuleRequest req) {
+        String mode = (req == null) ? null : req.mode;
+        int affected = studentCreditService.applyItemRule(itemId, mode);
+        java.util.Map<String, Object> resp = new java.util.HashMap<>();
+        resp.put("affected", affected);
+        resp.put("mode", mode == null ? "reset" : mode);
+        return ResponseEntity.ok(resp);
     }
 }

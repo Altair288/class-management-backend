@@ -110,4 +110,48 @@ public class StudentCreditService {
         sc.setScore(newScore);
         studentCreditRepository.save(sc);
     }
+
+    /**
+     * 将某个主项目的规则应用给所有学生。
+     * mode:
+     *  - reset: 所有学生该项目的分数重置为 item.initialScore（默认）。
+     *  - clamp: 只按 item.maxScore 进行封顶（若降低了最大分），不改变其他分数。
+     * 返回受影响记录数。
+     */
+    @Transactional
+    public int applyItemRule(Integer itemId, String mode) {
+        CreditItem item = creditItemRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("项目不存在"));
+        String m = (mode == null || mode.isBlank()) ? "reset" : mode.trim().toLowerCase();
+        List<StudentCredit> list = studentCreditRepository.findAllByCreditItem_Id(itemId);
+        int affected = 0;
+        if ("reset".equals(m)) {
+            double init = item.getInitialScore() == null ? 0.0 : item.getInitialScore();
+            for (StudentCredit sc : list) {
+                double v = init;
+                Double max = item.getMaxScore();
+                if (max != null && v > max) v = max;
+                if (v < 0) v = 0;
+                if (!Objects.equals(sc.getScore(), v)) {
+                    sc.setScore(v);
+                    affected++;
+                }
+            }
+            studentCreditRepository.saveAll(list);
+            return affected;
+        } else if ("clamp".equals(m)) {
+            Double max = item.getMaxScore();
+            if (max == null) return 0;
+            for (StudentCredit sc : list) {
+                if (sc.getScore() != null && sc.getScore() > max) {
+                    sc.setScore(max);
+                    affected++;
+                }
+            }
+            studentCreditRepository.saveAll(list);
+            return affected;
+        } else {
+            throw new IllegalArgumentException("不支持的模式: " + mode + "，可选 reset/clamp");
+        }
+    }
 }
