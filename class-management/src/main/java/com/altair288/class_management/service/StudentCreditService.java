@@ -20,11 +20,16 @@ public class StudentCreditService {
     private final StudentRepository studentRepository;
     private final StudentCreditRepository studentCreditRepository;
     private final CreditItemRepository creditItemRepository;
+    private final StudentEvaluationService evaluationService;
 
-    public StudentCreditService(StudentRepository studentRepository, StudentCreditRepository studentCreditRepository, CreditItemRepository creditItemRepository) {
+    public StudentCreditService(StudentRepository studentRepository,
+                                StudentCreditRepository studentCreditRepository,
+                                CreditItemRepository creditItemRepository,
+                                StudentEvaluationService evaluationService) {
         this.studentRepository = studentRepository;
         this.studentCreditRepository = studentCreditRepository;
         this.creditItemRepository = creditItemRepository;
+        this.evaluationService = evaluationService;
     }
 
     public StudentCreditsDTO getTotalsForStudent(Integer studentId) {
@@ -65,6 +70,8 @@ public class StudentCreditService {
         if (newScore < 0) newScore = 0;
         sc.setScore(newScore);
         studentCreditRepository.save(sc);
+    // recompute evaluation for this student
+    try { evaluationService.recomputeForStudent(studentId); } catch (Exception ignored) {}
     }
 
     public List<StudentCreditItemDTO> listStudentItems(Integer studentId, String category) {
@@ -109,6 +116,8 @@ public class StudentCreditService {
         if (newScore < 0) newScore = 0;
         sc.setScore(newScore);
         studentCreditRepository.save(sc);
+    // recompute evaluation for this student
+    try { evaluationService.recomputeForStudent(studentId); } catch (Exception ignored) {}
     }
 
     /**
@@ -138,6 +147,10 @@ public class StudentCreditService {
                 }
             }
             studentCreditRepository.saveAll(list);
+            // refresh evaluations
+            for (StudentCredit sc : list) {
+                try { evaluationService.recomputeForStudent(sc.getStudent().getId()); } catch (Exception ignored) {}
+            }
             return affected;
         } else if ("clamp".equals(m)) {
             Double max = item.getMaxScore();
@@ -149,6 +162,9 @@ public class StudentCreditService {
                 }
             }
             studentCreditRepository.saveAll(list);
+            for (StudentCredit sc : list) {
+                try { evaluationService.recomputeForStudent(sc.getStudent().getId()); } catch (Exception ignored) {}
+            }
             return affected;
         } else {
             throw new IllegalArgumentException("不支持的模式: " + mode + "，可选 reset/clamp");

@@ -8,6 +8,7 @@ import com.altair288.class_management.model.Student;
 import com.altair288.class_management.repository.StudentRepository;
 import com.altair288.class_management.service.CreditItemService;
 import com.altair288.class_management.service.StudentCreditService;
+import com.altair288.class_management.service.StudentEvaluationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,11 +21,13 @@ public class CreditsController {
     private final CreditItemService creditItemService;
     private final StudentCreditService studentCreditService;
     private final StudentRepository studentRepository;
+    private final StudentEvaluationService evaluationService;
 
-    public CreditsController(CreditItemService creditItemService, StudentCreditService studentCreditService, StudentRepository studentRepository) {
+    public CreditsController(CreditItemService creditItemService, StudentCreditService studentCreditService, StudentRepository studentRepository, StudentEvaluationService evaluationService) {
         this.creditItemService = creditItemService;
         this.studentCreditService = studentCreditService;
         this.studentRepository = studentRepository;
+        this.evaluationService = evaluationService;
     }
 
     // 列表（支持可选 category 过滤）
@@ -51,6 +54,35 @@ public class CreditsController {
         return ResponseEntity.ok(studentCreditService.getTotalsForStudent(studentId));
     }
 
+    // 获取某个学生的总分与评级（持久化表）
+    @GetMapping("/students/{studentId}/evaluation")
+    public ResponseEntity<Map<String,Object>> getStudentEvaluation(@PathVariable Integer studentId) {
+        var eval = evaluationService.recomputeForStudent(studentId);
+        java.util.Map<String,Object> resp = new java.util.HashMap<>();
+        resp.put("studentId", studentId);
+        resp.put("total", eval.getTotalScore());
+        resp.put("status", eval.getStatus());
+        return ResponseEntity.ok(resp);
+    }
+
+    // 批量重算：某班级
+    @PostMapping("/class/{classId}/evaluation/recompute")
+    public ResponseEntity<Map<String,Object>> recomputeClassEvaluation(@PathVariable Integer classId) {
+        int n = evaluationService.recomputeForClass(classId);
+        java.util.Map<String,Object> resp = new java.util.HashMap<>();
+        resp.put("recomputed", n);
+        return ResponseEntity.ok(resp);
+    }
+
+    // 批量重算：全部学生
+    @PostMapping("/evaluation/recompute-all")
+    public ResponseEntity<Map<String,Object>> recomputeAllEvaluation() {
+        int n = evaluationService.recomputeAll();
+        java.util.Map<String,Object> resp = new java.util.HashMap<>();
+        resp.put("recomputed", n);
+        return ResponseEntity.ok(resp);
+    }
+
     // 获取某个班级下所有学生的总分
     @GetMapping("/class/{classId}/students")
     public ResponseEntity<List<StudentCreditsViewDTO>> getClassStudentsTotals(@PathVariable Integer classId) {
@@ -69,11 +101,9 @@ public class CreditsController {
             v.setTi(totalDto.getTi());
             v.setMei(totalDto.getMei());
             v.setLao(totalDto.getLao());
-            double total = totalDto.getDe() + totalDto.getZhi() + totalDto.getTi() + totalDto.getMei() + totalDto.getLao();
-            v.setTotal(total);
-            // 映射等级：>=400 优秀; >=350 良好; >=300 预警; 否则 危险
-            String status = total >= 400 ? "excellent" : total >= 350 ? "good" : total >= 300 ? "warning" : "danger";
-            v.setStatus(status);
+            var eval = evaluationService.recomputeForStudent(s.getId());
+            v.setTotal(eval.getTotalScore());
+            v.setStatus(eval.getStatus());
             list.add(v);
         }
         return ResponseEntity.ok(list);
@@ -111,5 +141,55 @@ public class CreditsController {
         resp.put("affected", affected);
         resp.put("mode", mode == null ? "reset" : mode);
         return ResponseEntity.ok(resp);
+    }
+
+    // 统一联合筛选：按关键字(姓名/学号)、班级ID、状态(可同时存在)
+    // GET /api/credits/student-union-scores?keyword=&classId=&status=
+    @GetMapping("/student-union-scores")
+    public ResponseEntity<List<StudentCreditsViewDTO>> unionScores(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer classId,
+            @RequestParam(required = false) String status
+    ) {
+        String kw = keyword == null ? null : keyword.trim();
+        String st = status == null ? null : status.trim().toLowerCase();
+        if (st != null && !st.isEmpty()) {
+            if (!("excellent".equals(st) || "good".equals(st) || "warning".equals(st) || "danger".equals(st))) {
+                throw new IllegalArgumentException("状态必须为 excellent/good/warning/danger");
+            }
+        }
+
+        List<Student> base = (classId != null) ? studentRepository.findByClazzId(classId) : studentRepository.findAll();
+        if (kw != null && !kw.isEmpty()) {
+            String lkw = kw.toLowerCase();
+            base = base.stream().filter(s -> {
+                String name = s.getName() == null ? "" : s.getName();
+                String sno = s.getStudentNo() == null ? "" : s.getStudentNo();
+                return name.toLowerCase().contains(lkw) || sno.toLowerCase().contains(lkw);
+            }).toList();
+        }
+
+        List<StudentCreditsViewDTO> list = new java.util.ArrayList<>();
+        for (Student s : base) {
+            var totals = studentCreditService.getTotalsForStudent(s.getId());
+            var eval = evaluationService.recomputeForStudent(s.getId()); // 确保总分/状态最新
+            if (st != null && !st.isEmpty() && !st.equals(eval.getStatus())) {
+                continue;
+            }
+            StudentCreditsViewDTO v = new StudentCreditsViewDTO();
+            v.setId(s.getId());
+            v.setStudentId(s.getStudentNo());
+            v.setStudentName(s.getName());
+            v.setClassName(s.getClazz() != null ? s.getClazz().getName() : "");
+            v.setDe(totals.getDe());
+            v.setZhi(totals.getZhi());
+            v.setTi(totals.getTi());
+            v.setMei(totals.getMei());
+            v.setLao(totals.getLao());
+            v.setTotal(eval.getTotalScore());
+            v.setStatus(eval.getStatus());
+            list.add(v);
+        }
+        return ResponseEntity.ok(list);
     }
 }

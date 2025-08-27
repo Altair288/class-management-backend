@@ -27,6 +27,8 @@ public class StudentService {
     private CreditItemRepository creditItemRepository;
     @Autowired
     private StudentCreditRepository studentCreditRepository;
+    @Autowired
+    private StudentEvaluationService studentEvaluationService;
 
     @Transactional
     public void importStudentsFromExcel(Integer classId, MultipartFile file) throws Exception {
@@ -168,6 +170,8 @@ public class StudentService {
                 sc.setScore(item.getInitialScore() == null ? 0.0 : item.getInitialScore());
                 studentCreditRepository.save(sc);
             }
+            // 初始化完项目得分后，计算并落库总分与等级
+            try { studentEvaluationService.recomputeForStudent(saved.getId()); } catch (Exception ignored) {}
         }
         return saved;
     }

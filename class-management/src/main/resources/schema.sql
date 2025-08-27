@@ -182,6 +182,18 @@ CREATE TABLE IF NOT EXISTS `credit_subitem` (
   CONSTRAINT `fk_cs_item` FOREIGN KEY (`item_id`) REFERENCES `credit_item`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 学生评价汇总表：存储每个学生的总分与评判等级
+CREATE TABLE IF NOT EXISTS `student_evaluation` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `student_id` INT NOT NULL COMMENT '学生ID',
+  `total_score` DECIMAL(7,2) NOT NULL DEFAULT 0 COMMENT '总分',
+  `status` ENUM('excellent','good','warning','danger') NOT NULL COMMENT '评判等级',
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_eval_student` (`student_id`),
+  CONSTRAINT `fk_eval_student` FOREIGN KEY (`student_id`) REFERENCES `student`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- class_management.parent definition
 
 CREATE TABLE `parent` (
