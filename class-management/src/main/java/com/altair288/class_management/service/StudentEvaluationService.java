@@ -69,4 +69,14 @@ public class StudentEvaluationService {
         }
         return n;
     }
+
+    @Transactional(readOnly = true)
+    public java.util.Map<Integer, String> getStatusesFor(java.util.Collection<Integer> studentIds) {
+        java.util.Map<Integer, String> map = new java.util.HashMap<>();
+        for (Integer id : studentIds) {
+            var opt = evaluationRepository.findByStudent_Id(id);
+            opt.ifPresent(ev -> map.put(id, ev.getStatus()));
+        }
+        return map;
+    }
 }

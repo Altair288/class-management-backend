@@ -6,6 +6,7 @@ import com.altair288.class_management.dto.StudentCreditItemDTO;
 import com.altair288.class_management.dto.StudentCreditsViewDTO;
 import com.altair288.class_management.model.Student;
 import com.altair288.class_management.repository.StudentRepository;
+import com.altair288.class_management.repository.ClassRepository;
 import com.altair288.class_management.service.CreditItemService;
 import com.altair288.class_management.service.StudentCreditService;
 import com.altair288.class_management.service.StudentEvaluationService;
@@ -22,12 +23,14 @@ public class CreditsController {
     private final StudentCreditService studentCreditService;
     private final StudentRepository studentRepository;
     private final StudentEvaluationService evaluationService;
+    private final ClassRepository classRepository;
 
-    public CreditsController(CreditItemService creditItemService, StudentCreditService studentCreditService, StudentRepository studentRepository, StudentEvaluationService evaluationService) {
+    public CreditsController(CreditItemService creditItemService, StudentCreditService studentCreditService, StudentRepository studentRepository, StudentEvaluationService evaluationService, ClassRepository classRepository) {
         this.creditItemService = creditItemService;
         this.studentCreditService = studentCreditService;
         this.studentRepository = studentRepository;
         this.evaluationService = evaluationService;
+        this.classRepository = classRepository;
     }
 
     // 列表（支持可选 category 过滤）
@@ -169,27 +172,78 @@ public class CreditsController {
             }).toList();
         }
 
+        // 批量聚合汇总，避免 N+1
+        List<Integer> ids = base.stream().map(Student::getId).toList();
+        var projections = studentCreditService.sumByStudentIds(ids);
+        java.util.Map<Integer, com.altair288.class_management.repository.StudentCreditRepository.StudentTotalsProjection> sums = new java.util.HashMap<>();
+        for (var p : projections) sums.put(p.getStudentId(), p);
+        // 状态从 evaluation 表读取（若无可选重算，可依据 total 算出）
+        java.util.Map<Integer, String> statuses = evaluationService.getStatusesFor(ids);
+
         List<StudentCreditsViewDTO> list = new java.util.ArrayList<>();
         for (Student s : base) {
-            var totals = studentCreditService.getTotalsForStudent(s.getId());
-            var eval = evaluationService.recomputeForStudent(s.getId()); // 确保总分/状态最新
-            if (st != null && !st.isEmpty() && !st.equals(eval.getStatus())) {
-                continue;
+            var agg = sums.get(s.getId());
+            if (agg == null) continue; // 没有学分记录则跳过
+            String evalStatus = statuses.get(s.getId());
+            if (evalStatus == null) {
+                double total = agg.getTotal() == null ? 0.0 : agg.getTotal();
+                evalStatus = total >= 400 ? "excellent" : total >= 350 ? "good" : total >= 300 ? "warning" : "danger";
             }
+            if (st != null && !st.isEmpty() && !st.equals(evalStatus)) continue;
+
             StudentCreditsViewDTO v = new StudentCreditsViewDTO();
             v.setId(s.getId());
             v.setStudentId(s.getStudentNo());
             v.setStudentName(s.getName());
             v.setClassName(s.getClazz() != null ? s.getClazz().getName() : "");
-            v.setDe(totals.getDe());
-            v.setZhi(totals.getZhi());
-            v.setTi(totals.getTi());
-            v.setMei(totals.getMei());
-            v.setLao(totals.getLao());
-            v.setTotal(eval.getTotalScore());
-            v.setStatus(eval.getStatus());
+            v.setDe(nz(agg.getDe()));
+            v.setZhi(nz(agg.getZhi()));
+            v.setTi(nz(agg.getTi()));
+            v.setMei(nz(agg.getMei()));
+            v.setLao(nz(agg.getLao()));
+            v.setTotal(nz(agg.getTotal()));
+            v.setStatus(evalStatus);
             list.add(v);
         }
         return ResponseEntity.ok(list);
     }
+
+    // 仪表盘汇总信息
+    // GET /api/credits/dashboard/summary
+    @GetMapping("/dashboard/summary")
+    public ResponseEntity<Map<String,Object>> dashboardSummary() {
+        long totalClasses = classRepository.count();
+        long totalStudents = studentRepository.count();
+
+        // 直接一次聚合取各类别总和
+        var sums = studentCreditService.sumAllCategories();
+        double denom = (totalStudents == 0) ? 1.0 : (double) totalStudents;
+        double avgDe = nz(sums.getSumDe()) / denom;
+        double avgZhi = nz(sums.getSumZhi()) / denom;
+        double avgTi = nz(sums.getSumTi()) / denom;
+        double avgMei = nz(sums.getSumMei()) / denom;
+        double avgLao = nz(sums.getSumLao()) / denom;
+        double avgTotal = (avgDe + avgZhi + avgTi + avgMei + avgLao);
+
+        // 各等级人数用一次 native 聚合
+        var buckets = studentCreditService.countBuckets();
+
+        Map<String,Object> resp = new java.util.HashMap<>();
+        resp.put("totalStudents", totalStudents);
+        resp.put("totalClasses", totalClasses);
+        resp.put("countExcellent", buckets.getExc());
+        resp.put("countGood", buckets.getGood());
+        resp.put("countWarning", buckets.getWarning());
+        resp.put("countDanger", buckets.getDanger());
+        resp.put("avgDe", avgDe);
+        resp.put("avgZhi", avgZhi);
+        resp.put("avgTi", avgTi);
+        resp.put("avgMei", avgMei);
+        resp.put("avgLao", avgLao);
+        resp.put("avgTotal", avgTotal);
+        return ResponseEntity.ok(resp);
+    }
+
+    // 小工具：null as zero
+    private static double nz(Double v) { return v == null ? 0.0 : v; }
 }

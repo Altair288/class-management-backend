@@ -120,6 +120,23 @@ public class StudentCreditService {
     try { evaluationService.recomputeForStudent(studentId); } catch (Exception ignored) {}
     }
 
+    // 批量聚合：向外暴露仓库聚合结果
+    @Transactional(readOnly = true)
+    public List<com.altair288.class_management.repository.StudentCreditRepository.StudentTotalsProjection> sumByStudentIds(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) return java.util.List.of();
+        return studentCreditRepository.sumByStudentIds(ids);
+    }
+
+    @Transactional(readOnly = true)
+    public com.altair288.class_management.repository.StudentCreditRepository.CategorySumsProjection sumAllCategories() {
+        return studentCreditRepository.sumAllCategories();
+    }
+
+    @Transactional(readOnly = true)
+    public com.altair288.class_management.repository.StudentCreditRepository.DashboardBucketsProjection countBuckets() {
+        return studentCreditRepository.countBuckets();
+    }
+
     /**
      * 将某个主项目的规则应用给所有学生。
      * mode:
