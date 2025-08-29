@@ -6,7 +6,7 @@ import com.altair288.class_management.dto.CreditItemDTO;
 import com.altair288.class_management.repository.CreditItemRepository;
 import com.altair288.class_management.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.CommandLineRunner;
+import java.util.Date;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
@@ -31,9 +31,13 @@ public class TestDataInitializer {
     @Autowired private ClassService classService;
     @Autowired private StudentCreditService studentCreditService;
     @Autowired private CreditItemRepository creditItemRepository;
+    @Autowired private LeaveTypeConfigService leaveTypeConfigService;
+    @Autowired private LeaveRequestService leaveRequestService;
+    @Autowired private StudentLeaveBalanceService studentLeaveBalanceService;
+    @Autowired private com.altair288.class_management.repository.LeaveTypeConfigRepository leaveTypeConfigRepository;
     private final CreditItemService creditItemService;
 
-    public TestDataInitializer(UserService userService, RoleService roleService, PermissionService permissionService, UserRoleService userRoleService, RolePermissionService rolePermissionService, TeacherService teacherService, StudentService studentService, ParentService parentService, ClassService classService, StudentCreditService studentCreditService, CreditItemRepository creditItemRepository, CreditItemService creditItemService) {
+    public TestDataInitializer(UserService userService, RoleService roleService, PermissionService permissionService, UserRoleService userRoleService, RolePermissionService rolePermissionService, TeacherService teacherService, StudentService studentService, ParentService parentService, ClassService classService, StudentCreditService studentCreditService, CreditItemRepository creditItemRepository, CreditItemService creditItemService, LeaveTypeConfigService leaveTypeConfigService, LeaveRequestService leaveRequestService, StudentLeaveBalanceService studentLeaveBalanceService) {
         this.userService = userService;
         this.roleService = roleService;
         this.permissionService = permissionService;
@@ -46,6 +50,9 @@ public class TestDataInitializer {
         this.studentCreditService = studentCreditService;
         this.creditItemRepository = creditItemRepository;
         this.creditItemService = creditItemService;
+        this.leaveTypeConfigService = leaveTypeConfigService;
+        this.leaveRequestService = leaveRequestService;
+        this.studentLeaveBalanceService = studentLeaveBalanceService;
     }
 
     @PostConstruct
@@ -314,11 +321,175 @@ public class TestDataInitializer {
             studentCreditService.setScore(sZhao6.getId(), meiId, 48.0);
             studentCreditService.setScore(sZhao6.getId(), laoId, 52.0);
 
+            // ====== 请假管理系统测试数据 ======
+            
+            // 1. 创建请假类型配置 (检查是否已存在)
+            LeaveTypeConfig sickLeaveConfig = leaveTypeConfigRepository.findByTypeCode("sick");
+            if (sickLeaveConfig == null) {
+                sickLeaveConfig = new LeaveTypeConfig();
+                sickLeaveConfig.setTypeCode("sick");
+                sickLeaveConfig.setTypeName("病假");
+                sickLeaveConfig.setMaxDaysPerRequest(90);
+                sickLeaveConfig.setAnnualAllowance(10);
+                sickLeaveConfig.setAdvanceDaysRequired(1);
+                sickLeaveConfig.setRequiresApproval(false);
+                sickLeaveConfig.setRequiresMedicalProof(true);
+                sickLeaveConfig.setEnabled(true);
+                sickLeaveConfig.setColor("#388e3c");
+                sickLeaveConfig.setDescription("因病需要休息，需提供医疗证明");
+                sickLeaveConfig = leaveTypeConfigService.saveLeaveType(sickLeaveConfig);
+            }
+
+            LeaveTypeConfig personalLeaveConfig = leaveTypeConfigRepository.findByTypeCode("personal");
+            if (personalLeaveConfig == null) {
+                personalLeaveConfig = new LeaveTypeConfig();
+                personalLeaveConfig.setTypeCode("personal");
+                personalLeaveConfig.setTypeName("事假");
+                personalLeaveConfig.setMaxDaysPerRequest(10);
+                personalLeaveConfig.setAnnualAllowance(5);
+                personalLeaveConfig.setAdvanceDaysRequired(1);
+                personalLeaveConfig.setRequiresApproval(true);
+                personalLeaveConfig.setRequiresMedicalProof(false);
+                personalLeaveConfig.setEnabled(true);
+                personalLeaveConfig.setColor("#f57c00");
+                personalLeaveConfig.setDescription("因个人事务需要请假");
+                personalLeaveConfig = leaveTypeConfigService.saveLeaveType(personalLeaveConfig);
+            }
+
+            LeaveTypeConfig annualLeaveConfig = leaveTypeConfigRepository.findByTypeCode("annual");
+            if (annualLeaveConfig == null) {
+                annualLeaveConfig = new LeaveTypeConfig();
+                annualLeaveConfig.setTypeCode("annual");
+                annualLeaveConfig.setTypeName("年假");
+                annualLeaveConfig.setMaxDaysPerRequest(30);
+                annualLeaveConfig.setAnnualAllowance(15);
+                annualLeaveConfig.setAdvanceDaysRequired(3);
+                annualLeaveConfig.setRequiresApproval(true);
+                annualLeaveConfig.setRequiresMedicalProof(false);
+                annualLeaveConfig.setEnabled(true);
+                annualLeaveConfig.setColor("#1976d2");
+                annualLeaveConfig.setDescription("每年享有的带薪年假，需提前申请");
+                annualLeaveConfig = leaveTypeConfigService.saveLeaveType(annualLeaveConfig);
+            }
+
+            LeaveTypeConfig maternityLeaveConfig = leaveTypeConfigRepository.findByTypeCode("maternity");
+            if (maternityLeaveConfig == null) {
+                maternityLeaveConfig = new LeaveTypeConfig();
+                maternityLeaveConfig.setTypeCode("maternity");
+                maternityLeaveConfig.setTypeName("产假");
+                maternityLeaveConfig.setMaxDaysPerRequest(128);
+                maternityLeaveConfig.setAnnualAllowance(128);
+                maternityLeaveConfig.setAdvanceDaysRequired(30);
+                maternityLeaveConfig.setRequiresApproval(true);
+                maternityLeaveConfig.setRequiresMedicalProof(true);
+                maternityLeaveConfig.setEnabled(true);
+                maternityLeaveConfig.setColor("#e91e63");
+                maternityLeaveConfig.setDescription("女性员工生育期间的带薪假期");
+                maternityLeaveConfig = leaveTypeConfigService.saveLeaveType(maternityLeaveConfig);
+            }
+
+            // 2. 初始化学生请假余额 - 使用2024学年
+            Integer currentYear = 2024;
+            studentLeaveBalanceService.initializeStudentBalance(sZhang3.getId(), sickLeaveConfig.getId(), currentYear, sickLeaveConfig.getAnnualAllowance());
+            studentLeaveBalanceService.initializeStudentBalance(sZhang3.getId(), personalLeaveConfig.getId(), currentYear, personalLeaveConfig.getAnnualAllowance());
+            studentLeaveBalanceService.initializeStudentBalance(sZhang3.getId(), annualLeaveConfig.getId(), currentYear, annualLeaveConfig.getAnnualAllowance());
+
+            studentLeaveBalanceService.initializeStudentBalance(sLi4.getId(), sickLeaveConfig.getId(), currentYear, sickLeaveConfig.getAnnualAllowance());
+            studentLeaveBalanceService.initializeStudentBalance(sLi4.getId(), personalLeaveConfig.getId(), currentYear, personalLeaveConfig.getAnnualAllowance());
+            studentLeaveBalanceService.initializeStudentBalance(sLi4.getId(), annualLeaveConfig.getId(), currentYear, annualLeaveConfig.getAnnualAllowance());
+
+            studentLeaveBalanceService.initializeStudentBalance(sWang5.getId(), sickLeaveConfig.getId(), currentYear, sickLeaveConfig.getAnnualAllowance());
+            studentLeaveBalanceService.initializeStudentBalance(sWang5.getId(), personalLeaveConfig.getId(), currentYear, personalLeaveConfig.getAnnualAllowance());
+            studentLeaveBalanceService.initializeStudentBalance(sWang5.getId(), annualLeaveConfig.getId(), currentYear, annualLeaveConfig.getAnnualAllowance());
+
+            studentLeaveBalanceService.initializeStudentBalance(sZhao6.getId(), sickLeaveConfig.getId(), currentYear, sickLeaveConfig.getAnnualAllowance());
+            studentLeaveBalanceService.initializeStudentBalance(sZhao6.getId(), personalLeaveConfig.getId(), currentYear, personalLeaveConfig.getAnnualAllowance());
+            studentLeaveBalanceService.initializeStudentBalance(sZhao6.getId(), annualLeaveConfig.getId(), currentYear, annualLeaveConfig.getAnnualAllowance());
+
+            // 3. 创建一些示例请假申请
+            
+            // 张三的病假申请（已批准）
+            LeaveRequest sickLeave1 = new LeaveRequest();
+            sickLeave1.setStudentId(sZhang3.getId());
+            sickLeave1.setLeaveTypeId(sickLeaveConfig.getId());
+            sickLeave1.setStartDate(new Date(System.currentTimeMillis() - 5 * 24 * 60 * 60 * 1000L)); // 5天前
+            sickLeave1.setEndDate(new Date(System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000L)); // 3天前
+            sickLeave1.setDays(2.0);
+            sickLeave1.setReason("感冒发烧需要休息");
+            sickLeave1.setStatus("已批准");
+            sickLeave1.setCreatedAt(new Date(System.currentTimeMillis() - 6 * 24 * 60 * 60 * 1000L)); // 6天前提交
+            sickLeave1.setUpdatedAt(new Date(System.currentTimeMillis() - 4 * 24 * 60 * 60 * 1000L)); // 4天前批准
+            sickLeave1.setEmergencyContact("张父亲");
+            sickLeave1.setEmergencyPhone("13800138001");
+            sickLeave1 = leaveRequestService.submitLeaveRequest(sickLeave1);
+
+            // 李四的事假申请（待审批）
+            LeaveRequest personalLeave1 = new LeaveRequest();
+            personalLeave1.setStudentId(sLi4.getId());
+            personalLeave1.setLeaveTypeId(personalLeaveConfig.getId());
+            personalLeave1.setStartDate(new Date(System.currentTimeMillis() + 3 * 24 * 60 * 60 * 1000L)); // 3天后
+            personalLeave1.setEndDate(new Date(System.currentTimeMillis() + 4 * 24 * 60 * 60 * 1000L)); // 4天后
+            personalLeave1.setDays(1.0);
+            personalLeave1.setReason("家庭事务处理");
+            personalLeave1.setStatus("待审批");
+            personalLeave1.setCreatedAt(new Date(System.currentTimeMillis() - 2 * 60 * 60 * 1000L)); // 2小时前提交
+            personalLeave1.setUpdatedAt(new Date(System.currentTimeMillis() - 2 * 60 * 60 * 1000L));
+            personalLeave1.setEmergencyContact("李母亲");
+            personalLeave1.setEmergencyPhone("13800138002");
+            personalLeave1 = leaveRequestService.submitLeaveRequest(personalLeave1);
+
+            // 王五的年假申请（已批准）
+            LeaveRequest annualLeave1 = new LeaveRequest();
+            annualLeave1.setStudentId(sWang5.getId());
+            annualLeave1.setLeaveTypeId(annualLeaveConfig.getId());
+            annualLeave1.setStartDate(new Date(System.currentTimeMillis() + 10 * 24 * 60 * 60 * 1000L)); // 10天后
+            annualLeave1.setEndDate(new Date(System.currentTimeMillis() + 14 * 24 * 60 * 60 * 1000L)); // 14天后
+            annualLeave1.setDays(5.0);
+            annualLeave1.setReason("年假旅游");
+            annualLeave1.setStatus("已批准");
+            annualLeave1.setCreatedAt(new Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L)); // 7天前提交
+            annualLeave1.setUpdatedAt(new Date(System.currentTimeMillis() - 5 * 24 * 60 * 60 * 1000L)); // 5天前批准
+            annualLeave1.setEmergencyContact("王配偶");
+            annualLeave1.setEmergencyPhone("13800138003");
+            annualLeave1 = leaveRequestService.submitLeaveRequest(annualLeave1);
+
+            // 赵六的病假申请（被拒绝）
+            LeaveRequest sickLeave2 = new LeaveRequest();
+            sickLeave2.setStudentId(sZhao6.getId());
+            sickLeave2.setLeaveTypeId(sickLeaveConfig.getId());
+            sickLeave2.setStartDate(new Date(System.currentTimeMillis() - 2 * 24 * 60 * 60 * 1000L)); // 2天前
+            sickLeave2.setEndDate(new Date(System.currentTimeMillis() - 1 * 24 * 60 * 60 * 1000L)); // 1天前
+            sickLeave2.setDays(1.0);
+            sickLeave2.setReason("身体不适");
+            sickLeave2.setStatus("已拒绝");
+            sickLeave2.setCreatedAt(new Date(System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000L)); // 3天前提交
+            sickLeave2.setUpdatedAt(new Date(System.currentTimeMillis() - 2 * 24 * 60 * 60 * 1000L)); // 2天前拒绝
+            sickLeave2.setEmergencyContact("赵父亲");
+            sickLeave2.setEmergencyPhone("13800138004");
+            sickLeave2 = leaveRequestService.submitLeaveRequest(sickLeave2);
+
+            // 张三的紧急事假申请（待审批）
+            LeaveRequest emergencyLeave = new LeaveRequest();
+            emergencyLeave.setStudentId(sZhang3.getId());
+            emergencyLeave.setLeaveTypeId(personalLeaveConfig.getId());
+            emergencyLeave.setStartDate(new Date(System.currentTimeMillis() + 2 * 60 * 60 * 1000L)); // 2小时后
+            emergencyLeave.setEndDate(new Date(System.currentTimeMillis() + 8 * 60 * 60 * 1000L)); // 8小时后
+            emergencyLeave.setDays(1.0); // 半天按1天计算
+            emergencyLeave.setReason("家庭紧急情况");
+            emergencyLeave.setStatus("待审批");
+            emergencyLeave.setCreatedAt(new Date(System.currentTimeMillis() - 30 * 60 * 1000L)); // 30分钟前提交
+            emergencyLeave.setUpdatedAt(new Date(System.currentTimeMillis() - 30 * 60 * 1000L));
+            emergencyLeave.setEmergencyContact("张父亲");
+            emergencyLeave.setEmergencyPhone("13800138001");
+            emergencyLeave.setHandoverNotes("已安排同学代课");
+            emergencyLeave = leaveRequestService.submitLeaveRequest(emergencyLeave);
+
             logger.info("测试数据初始化完成,请使用用户名和密码登录：\n" +
                     "管理员账号：admin, 密码：" + initialPassword + "\n" +
                     "教师账号：T2024001, 密码：" + initialPassword + "\n" +
                     "学生账号：S2024001, 密码：" + initialPassword + "\n" +
-                    "家长账号：Telphone Number , 密码：" + initialPassword);
+                    "家长账号：Telphone Number , 密码：" + initialPassword + "\n" +
+                    "请假管理测试数据已创建，包括4种请假类型和5个示例申请");
         } catch (Exception e) {
             logger.error("初始化测试数据时发生错误: ", e);
         }

@@ -113,27 +113,6 @@ CREATE TABLE `grade` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
--- class_management.leave_request definition
-
-CREATE TABLE `leave_request` (
-  `id` int NOT NULL AUTO_INCREMENT COMMENT '请假ID',
-  `student_id` int NOT NULL COMMENT '请假学生ID',
-  `teacher_id` int DEFAULT NULL COMMENT '审批教师ID',
-  `leave_type` enum('病假','事假','其他') NOT NULL COMMENT '请假类型',
-  `reason` text NOT NULL COMMENT '请假原因',
-  `start_date` date NOT NULL COMMENT '请假开始日期',
-  `end_date` date NOT NULL COMMENT '请假结束日期',
-  `status` enum('待审批','已批准','已拒绝') DEFAULT '待审批' COMMENT '审批状态',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '提交时间',
-  `reviewed_at` timestamp NULL DEFAULT NULL COMMENT '审批时间',
-  PRIMARY KEY (`id`),
-  KEY `student_id` (`student_id`),
-  KEY `teacher_id` (`teacher_id`),
-  CONSTRAINT `leave_request_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `student` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `leave_request_ibfk_2` FOREIGN KEY (`teacher_id`) REFERENCES `teacher` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
 -- class_management.credit definition
 
 
@@ -243,6 +222,112 @@ CREATE TABLE `user_role` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
+-- class_management.leave_request definition
+
+-- 请假类型配置表
+CREATE TABLE `leave_type_config` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '配置ID',
+  `type_code` varchar(20) NOT NULL COMMENT '类型代码',
+  `type_name` varchar(50) NOT NULL COMMENT '类型名称',
+  `max_days_per_request` int NOT NULL DEFAULT 30 COMMENT '单次请假最大天数',
+  `annual_allowance` int NOT NULL DEFAULT 15 COMMENT '年度额度',
+  `requires_approval` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否需要审批',
+  `requires_medical_proof` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否需要医疗证明',
+  `advance_days_required` int NOT NULL DEFAULT 1 COMMENT '需要提前申请天数',
+  `color` varchar(7) NOT NULL DEFAULT '#1976d2' COMMENT '显示颜色',
+  `description` text COMMENT '类型描述',
+  `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `type_code` (`type_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 学生请假余额表
+CREATE TABLE `student_leave_balance` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `student_id` int NOT NULL COMMENT '学生ID',
+  `leave_type_id` int NOT NULL COMMENT '请假类型ID',
+  `total_allowance` int NOT NULL COMMENT '总额度',
+  `used_days` decimal(5,2) NOT NULL DEFAULT 0 COMMENT '已使用天数',
+  `remaining_days` decimal(5,2) NOT NULL COMMENT '剩余天数',
+  `year` int NOT NULL COMMENT '年度',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `student_type_year` (`student_id`, `leave_type_id`, `year`),
+  KEY `leave_type_id` (`leave_type_id`),
+  CONSTRAINT `student_leave_balance_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `student` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `student_leave_balance_ibfk_2` FOREIGN KEY (`leave_type_id`) REFERENCES `leave_type_config` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- MinIO存储配置表
+CREATE TABLE `file_storage_config` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '配置ID',
+  `bucket_name` varchar(100) NOT NULL COMMENT '存储桶名称',
+  `bucket_purpose` varchar(100) NOT NULL COMMENT '存储桶用途',
+  `max_file_size` bigint NOT NULL DEFAULT 5242880 COMMENT '最大文件大小（字节，默认5MB）',
+  `allowed_extensions` json NOT NULL COMMENT '允许的文件扩展名',
+  `allowed_mime_types` json NOT NULL COMMENT '允许的MIME类型',
+  `retention_days` int NOT NULL DEFAULT 365 COMMENT '文件保留天数',
+  `auto_cleanup` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否自动清理过期文件',
+  `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `bucket_name` (`bucket_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `leave_request` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '请假ID',
+  `student_id` int NOT NULL COMMENT '请假学生ID',
+  `teacher_id` int DEFAULT NULL COMMENT '审批教师ID',
+  `leave_type_id` int NOT NULL COMMENT '请假类型ID',
+  `start_date` date NOT NULL COMMENT '请假开始日期',
+  `end_date` date NOT NULL COMMENT '请假结束日期',
+  `days` DECIMAL(5,2) NOT NULL COMMENT '请假天数（支持小数，半天=0.5，单位为天，保留两位小数）',
+  `reason` text NOT NULL COMMENT '请假原因',
+  `emergency_contact` varchar(50) NOT NULL COMMENT '紧急联系人',
+  `emergency_phone` varchar(20) NOT NULL COMMENT '紧急联系电话',
+  `handover_notes` text COMMENT '交接说明',
+  `attachment_count` int NOT NULL DEFAULT 0 COMMENT '附件数量',
+  `status` enum('草稿','待审批','已批准','已拒绝','已撤销') DEFAULT '待审批' COMMENT '审批状态',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '提交时间',
+  `reviewed_at` timestamp NULL DEFAULT NULL COMMENT '审批时间',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
+  PRIMARY KEY (`id`),
+  KEY `student_id` (`student_id`),
+  KEY `teacher_id` (`teacher_id`),
+  KEY `leave_type_id` (`leave_type_id`),
+  KEY `status` (`status`),
+  KEY `start_date` (`start_date`),
+  CONSTRAINT `leave_request_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `student` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `leave_request_ibfk_2` FOREIGN KEY (`teacher_id`) REFERENCES `teacher` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `leave_request_ibfk_3` FOREIGN KEY (`leave_type_id`) REFERENCES `leave_type_config` (`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 请假附件表（支持MinIO存储）
+CREATE TABLE `leave_attachment` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '附件ID',
+  `leave_request_id` int NOT NULL COMMENT '请假申请ID',
+  `original_name` varchar(255) NOT NULL COMMENT '原始文件名',
+  `file_name` varchar(255) NOT NULL COMMENT '存储文件名（UUID）',
+  `file_path` varchar(500) NOT NULL COMMENT 'MinIO存储路径',
+  `bucket_name` varchar(100) NOT NULL DEFAULT 'leave-attachments' COMMENT 'MinIO存储桶名称',
+  `file_size` bigint NOT NULL COMMENT '文件大小（字节）',
+  `file_type` varchar(100) NOT NULL COMMENT '文件MIME类型',
+  `file_extension` varchar(10) NOT NULL COMMENT '文件扩展名',
+  `upload_status` enum('uploading','completed','failed') DEFAULT 'uploading' COMMENT '上传状态',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+  `created_by` int NOT NULL COMMENT '上传者ID',
+  PRIMARY KEY (`id`),
+  KEY `leave_request_id` (`leave_request_id`),
+  KEY `created_by` (`created_by`),
+  KEY `upload_status` (`upload_status`),
+  CONSTRAINT `leave_attachment_ibfk_1` FOREIGN KEY (`leave_request_id`) REFERENCES `leave_request` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `leave_attachment_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `student` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
 -- class_management.leave_approval definition
 
 CREATE TABLE `leave_approval` (
@@ -304,3 +389,17 @@ CREATE TABLE `role_permission` (
   CONSTRAINT `role_permission_ibfk_2` FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE CASCADE,
   CONSTRAINT `role_permission_ibfk_3` FOREIGN KEY (`granted_by`) REFERENCES `user` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 插入默认请假类型配置数据
+INSERT INTO `leave_type_config` (`type_code`, `type_name`, `max_days_per_request`, `annual_allowance`, `requires_approval`, `requires_medical_proof`, `advance_days_required`, `color`, `description`) VALUES
+('annual', '年假', 30, 15, 1, 0, 3, '#1976d2', '每年享有的带薪年假，需提前申请'),
+('sick', '病假', 90, 10, 0, 1, 1, '#388e3c', '因病需要休息，需提供医疗证明'),
+('personal', '事假', 10, 5, 1, 0, 1, '#f57c00', '因个人事务需要请假'),
+('maternity', '产假', 128, 128, 1, 1, 30, '#e91e63', '女性员工生育期间的带薪假期'),
+('emergency', '紧急事假', 3, 3, 1, 0, 0, '#f44336', '突发紧急情况的临时请假');
+
+-- 插入MinIO存储配置数据
+INSERT INTO `file_storage_config` (`bucket_name`, `bucket_purpose`, `max_file_size`, `allowed_extensions`, `allowed_mime_types`, `retention_days`, `auto_cleanup`) VALUES
+('leave-attachments', '请假申请附件', 5242880, '["pdf", "jpg", "jpeg", "png", "doc", "docx"]', '["application/pdf", "image/jpeg", "image/png", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]', 1095, 0),
+('student-documents', '学生证明文件', 10485760, '["pdf", "jpg", "jpeg", "png"]', '["application/pdf", "image/jpeg", "image/png"]', 2190, 0),
+('system-backups', '系统备份文件', 1073741824, '["zip", "sql", "tar", "gz"]', '["application/zip", "application/sql", "application/x-tar", "application/gzip"]', 90, 1);

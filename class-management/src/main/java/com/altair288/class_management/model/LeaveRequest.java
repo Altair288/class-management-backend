@@ -2,6 +2,8 @@ package com.altair288.class_management.model;
 
 import jakarta.persistence.*;
 import java.util.Date;
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Entity
 @Table(name = "leave_request")
@@ -10,35 +12,73 @@ public class LeaveRequest {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @ManyToOne
-    @JoinColumn(name = "student_id", nullable = false)
-    private Student student;
+    @Column(name = "student_id")
+    private Integer studentId;
 
-    @ManyToOne
-    @JoinColumn(name = "teacher_id")
-    private Teacher teacher; // 审批教师
+    @Column(name = "teacher_id")
+    private Integer teacherId;
 
-    @Column(name = "leave_type", nullable = false)
-    private String leaveType;
+    @Column(name = "leave_type_id")
+    private Integer leaveTypeId;
 
-    @Column(name = "reason", nullable = false)
+    @Column(name = "reason")
     private String reason;
 
-    @Column(name = "start_date", nullable = false)
+    @Column(name = "start_date")
     private Date startDate;
 
-    @Column(name = "end_date", nullable = false)
+    @Column(name = "end_date")
     private Date endDate;
 
-    @Column(name = "status")
-    private String status; // 待审批/已批准/已拒绝
+    @Column(name = "days")
+    private Double days;
 
-    @Column(name = "created_at")
-    private Date createdAt;
+    @Column(name = "emergency_contact")
+    private String emergencyContact;
+
+    @Column(name = "emergency_phone")
+    private String emergencyPhone;
+
+    @Column(name = "handover_notes")
+    private String handoverNotes;
+
+    @Column(name = "attachment_count")
+    private Integer attachmentCount = 0;
+
+    @Column(name = "status")
+    private String status;
 
     @Column(name = "reviewed_at")
     private Date reviewedAt;
 
+    @Column(name = "created_at")
+    private Date createdAt;
+
+    @Column(name = "updated_at")
+    private Date updatedAt;
+
+    // 关联实体
+    @ManyToOne
+    @JoinColumn(name = "student_id", insertable = false, updatable = false)
+    private Student student;
+
+    @ManyToOne
+    @JoinColumn(name = "teacher_id", insertable = false, updatable = false)
+    private Teacher teacher;
+
+    @ManyToOne
+    @JoinColumn(name = "leave_type_id", insertable = false, updatable = false)
+    private LeaveTypeConfig leaveTypeConfig;
+
+    @OneToMany(mappedBy = "leaveRequest", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
+    private List<LeaveAttachment> attachments;
+
+    @OneToMany(mappedBy = "leaveRequest", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
+    private List<LeaveApproval> approvals;
+
+    // Getters and Setters
     public Integer getId() {
         return id;
     }
@@ -47,28 +87,28 @@ public class LeaveRequest {
         this.id = id;
     }
 
-    public Student getStudent() {
-        return student;
+    public Integer getStudentId() {
+        return studentId;
     }
 
-    public void setStudent(Student student) {
-        this.student = student;
+    public void setStudentId(Integer studentId) {
+        this.studentId = studentId;
     }
 
-    public Teacher getTeacher() {
-        return teacher;
+    public Integer getTeacherId() {
+        return teacherId;
     }
 
-    public void setTeacher(Teacher teacher) {
-        this.teacher = teacher;
+    public void setTeacherId(Integer teacherId) {
+        this.teacherId = teacherId;
     }
 
-    public String getLeaveType() {
-        return leaveType;
+    public Integer getLeaveTypeId() {
+        return leaveTypeId;
     }
 
-    public void setLeaveType(String leaveType) {
-        this.leaveType = leaveType;
+    public void setLeaveTypeId(Integer leaveTypeId) {
+        this.leaveTypeId = leaveTypeId;
     }
 
     public String getReason() {
@@ -95,12 +135,60 @@ public class LeaveRequest {
         this.endDate = endDate;
     }
 
+    public Double getDays() {
+        return days;
+    }
+
+    public void setDays(Double days) {
+        this.days = days;
+    }
+
+    public String getEmergencyContact() {
+        return emergencyContact;
+    }
+
+    public void setEmergencyContact(String emergencyContact) {
+        this.emergencyContact = emergencyContact;
+    }
+
+    public String getEmergencyPhone() {
+        return emergencyPhone;
+    }
+
+    public void setEmergencyPhone(String emergencyPhone) {
+        this.emergencyPhone = emergencyPhone;
+    }
+
+    public String getHandoverNotes() {
+        return handoverNotes;
+    }
+
+    public void setHandoverNotes(String handoverNotes) {
+        this.handoverNotes = handoverNotes;
+    }
+
+    public Integer getAttachmentCount() {
+        return attachmentCount;
+    }
+
+    public void setAttachmentCount(Integer attachmentCount) {
+        this.attachmentCount = attachmentCount;
+    }
+
     public String getStatus() {
         return status;
     }
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Date getReviewedAt() {
+        return reviewedAt;
+    }
+
+    public void setReviewedAt(Date reviewedAt) {
+        this.reviewedAt = reviewedAt;
     }
 
     public Date getCreatedAt() {
@@ -111,11 +199,51 @@ public class LeaveRequest {
         this.createdAt = createdAt;
     }
 
-    public Date getReviewedAt() {
-        return reviewedAt;
+    public Date getUpdatedAt() {
+        return updatedAt;
     }
 
-    public void setReviewedAt(Date reviewedAt) {
-        this.reviewedAt = reviewedAt;
+    public void setUpdatedAt(Date updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public Student getStudent() {
+        return student;
+    }
+
+    public void setStudent(Student student) {
+        this.student = student;
+    }
+
+    public Teacher getTeacher() {
+        return teacher;
+    }
+
+    public void setTeacher(Teacher teacher) {
+        this.teacher = teacher;
+    }
+
+    public LeaveTypeConfig getLeaveTypeConfig() {
+        return leaveTypeConfig;
+    }
+
+    public void setLeaveTypeConfig(LeaveTypeConfig leaveTypeConfig) {
+        this.leaveTypeConfig = leaveTypeConfig;
+    }
+
+    public List<LeaveAttachment> getAttachments() {
+        return attachments;
+    }
+
+    public void setAttachments(List<LeaveAttachment> attachments) {
+        this.attachments = attachments;
+    }
+
+    public List<LeaveApproval> getApprovals() {
+        return approvals;
+    }
+
+    public void setApprovals(List<LeaveApproval> approvals) {
+        this.approvals = approvals;
     }
 }
