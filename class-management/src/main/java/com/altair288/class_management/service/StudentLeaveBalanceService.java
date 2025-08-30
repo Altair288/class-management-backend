@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
+import java.util.Calendar;
 
 @Service
 public class StudentLeaveBalanceService {
@@ -117,5 +118,33 @@ public class StudentLeaveBalanceService {
 
     public List<StudentLeaveBalance> getAllBalances() {
         return studentLeaveBalanceRepository.findAll();
+    }
+    
+    /**
+     * 批量更新某个请假类型的所有学生余额（当配置发生变化时）
+     */
+    @Transactional
+    public void batchUpdateBalancesForConfigChange(Integer leaveTypeId, Integer newTotalAllowance) {
+        Integer currentYear = Calendar.getInstance().get(Calendar.YEAR);
+        List<StudentLeaveBalance> balances = studentLeaveBalanceRepository.findByLeaveTypeId(leaveTypeId);
+        
+        for (StudentLeaveBalance balance : balances) {
+            // 只更新当前年份的余额
+            if (currentYear.equals(balance.getYear())) {
+                balance.setTotalAllowance(newTotalAllowance);
+                
+                // 重新计算剩余天数
+                Double usedDays = balance.getUsedDays() != null ? balance.getUsedDays() : 0.0;
+                balance.setRemainingDays(newTotalAllowance - usedDays);
+                
+                // 确保剩余天数不为负数
+                if (balance.getRemainingDays() < 0) {
+                    balance.setRemainingDays(0.0);
+                }
+                
+                balance.setUpdatedAt(new Date());
+                studentLeaveBalanceRepository.save(balance);
+            }
+        }
     }
 }
