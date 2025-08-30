@@ -14,6 +14,9 @@ public interface StudentLeaveBalanceRepository extends JpaRepository<StudentLeav
     List<StudentLeaveBalance> findByLeaveTypeId(Integer leaveTypeId);
     List<StudentLeaveBalance> findByYear(Integer year);
     
+    @Query("SELECT COUNT(slb) FROM StudentLeaveBalance slb WHERE slb.leaveTypeId = :leaveTypeId")
+    Long countByLeaveTypeId(@Param("leaveTypeId") Integer leaveTypeId);
+    
     @Query("SELECT slb FROM StudentLeaveBalance slb WHERE slb.studentId = :studentId AND slb.year = :year")
     List<StudentLeaveBalance> findBalancesByStudentAndYear(@Param("studentId") Integer studentId, @Param("year") Integer year);
 }

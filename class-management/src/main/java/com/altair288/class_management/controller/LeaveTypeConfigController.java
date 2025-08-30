@@ -15,14 +15,14 @@ public class LeaveTypeConfigController {
     @Autowired
     private LeaveTypeConfigService leaveTypeConfigService;
 
-    // 获取所有激活的请假类型
+    // 获取所有激活的请假类型 用户申请时查询接口
     @GetMapping("/active")
     public ResponseEntity<List<LeaveTypeConfig>> getActiveLeaveTypes() {
         List<LeaveTypeConfig> types = leaveTypeConfigService.getAllActiveLeaveTypes();
         return ResponseEntity.ok(types);
     }
 
-    // 获取所有请假类型（包括已停用的）
+    // 获取所有请假类型（包括已停用的）系统配置时查询接口
     @GetMapping("/all")
     public ResponseEntity<List<LeaveTypeConfig>> getAllLeaveTypes() {
         List<LeaveTypeConfig> types = leaveTypeConfigService.getAllLeaveTypes();
@@ -99,7 +99,7 @@ public class LeaveTypeConfigController {
         }
     }
 
-    // 删除请假类型（软删除）
+    // 删除请假类型（硬删除，会检查关联数据）
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteLeaveType(@PathVariable Integer id) {
         LeaveTypeConfig existing = leaveTypeConfigService.getLeaveTypeById(id);
@@ -107,7 +107,12 @@ public class LeaveTypeConfigController {
             return ResponseEntity.notFound().build();
         }
         
-        leaveTypeConfigService.deleteLeaveType(id);
-        return ResponseEntity.ok().build();
+        try {
+            leaveTypeConfigService.deleteLeaveType(id);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            // 如果有关联数据，返回错误信息
+            return ResponseEntity.badRequest().build();
+        }
     }
 }

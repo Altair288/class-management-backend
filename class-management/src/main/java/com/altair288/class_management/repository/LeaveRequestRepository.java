@@ -24,6 +24,9 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Inte
     @Query("SELECT COUNT(lr) FROM LeaveRequest lr WHERE lr.status = :status")
     Long countByStatus(@Param("status") String status);
     
+    @Query("SELECT COUNT(lr) FROM LeaveRequest lr WHERE lr.leaveTypeId = :leaveTypeId")
+    Long countByLeaveTypeId(@Param("leaveTypeId") Integer leaveTypeId);
+    
     @Query("SELECT COUNT(lr) FROM LeaveRequest lr WHERE lr.studentId = :studentId AND lr.status = :status")
     Long countByStudentIdAndStatus(@Param("studentId") Integer studentId, @Param("status") String status);
     
