@@ -9,6 +9,7 @@ import java.util.*;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import com.altair288.class_management.dto.LeaveCalendarDTO;
 
 @Service
 public class LeaveRequestService {
@@ -216,5 +217,26 @@ public class LeaveRequestService {
     public LeaveRequest save(LeaveRequest leaveRequest) {
         leaveRequest.setUpdatedAt(new Date());
         return leaveRequestRepository.save(leaveRequest);
+    }
+
+    // 日历视图数据：一次查询连表返回轻量字段
+    @Transactional(readOnly = true)
+    public List<LeaveCalendarDTO> getCalendarData(Integer classId, String status, Date start, Date end) {
+        var rows = leaveRequestRepository.findForCalendar(classId, status, start, end);
+        List<LeaveCalendarDTO> list = new ArrayList<>();
+        for (var r : rows) {
+            list.add(new LeaveCalendarDTO(
+                    r.getId(),
+                    r.getStudentId(),
+                    r.getStudentName(),
+                    r.getStudentNo(),
+                    r.getLeaveTypeCode(),
+                    r.getLeaveTypeName(),
+                    r.getStatus(),
+                    r.getStartDate(),
+                    r.getEndDate()
+            ));
+        }
+        return list;
     }
 }

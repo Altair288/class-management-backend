@@ -99,6 +99,17 @@ public class LeaveTypeConfigController {
         }
     }
 
+    // 手动触发该类型余额同步（onlyCurrentYear=true 只同步当前学年）
+    @PostMapping("/{id}/sync-balances")
+    public ResponseEntity<java.util.Map<String,Object>> syncBalances(@PathVariable Integer id,
+                                                                     @RequestParam(defaultValue = "true") boolean onlyCurrentYear) {
+        int updated = leaveTypeConfigService.syncBalancesForLeaveType(id, onlyCurrentYear);
+        java.util.Map<String,Object> resp = new java.util.HashMap<>();
+        resp.put("updated", updated);
+        resp.put("onlyCurrentYear", onlyCurrentYear);
+        return ResponseEntity.ok(resp);
+    }
+
     // 删除请假类型（硬删除，会检查关联数据）
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteLeaveType(@PathVariable Integer id) {

@@ -2,6 +2,8 @@ package com.altair288.class_management.controller;
 
 import com.altair288.class_management.model.LeaveRequest;
 import com.altair288.class_management.model.LeaveTypeConfig;
+import com.altair288.class_management.dto.LeaveCalendarDTO;
+import org.springframework.format.annotation.DateTimeFormat;
 import com.altair288.class_management.service.LeaveRequestService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -176,5 +178,17 @@ public class LeaveRequestController {
         } else {
             return rejectLeaveRequest(id, 1, "系统自动拒绝");
         }
+    }
+
+    // 日历视图：批量返回轻量字段，避免 N+1
+    // GET /api/leave/calendar?classId=&status=&start=&end=
+    @GetMapping("/calendar")
+    public ResponseEntity<List<LeaveCalendarDTO>> calendar(
+            @RequestParam(required = false) Integer classId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) Date start,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) Date end) {
+        List<LeaveCalendarDTO> list = leaveRequestService.getCalendarData(classId, status, start, end);
+        return ResponseEntity.ok(list);
     }
 }

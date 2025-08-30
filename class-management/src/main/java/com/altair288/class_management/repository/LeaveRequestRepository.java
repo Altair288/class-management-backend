@@ -32,4 +32,28 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Inte
     
     @Query("SELECT SUM(lr.days) FROM LeaveRequest lr WHERE lr.studentId = :studentId AND lr.leaveTypeId = :leaveTypeId AND lr.status = '已批准' AND YEAR(lr.startDate) = :year")
     Integer sumDaysByStudentIdAndLeaveTypeIdAndYear(@Param("studentId") Integer studentId, @Param("leaveTypeId") Integer leaveTypeId, @Param("year") Integer year);
+
+    // 日历视图批量查询：一次性连表拿到所需轻量字段，避免 N+1
+    interface CalendarProjection {
+        Integer getId();
+        Integer getStudentId();
+        String getStudentName();
+        String getStudentNo();
+        String getLeaveTypeCode();
+        String getLeaveTypeName();
+        String getStatus();
+        Date getStartDate();
+        Date getEndDate();
+    }
+
+    @Query("select lr.id as id, s.id as studentId, s.name as studentName, s.studentNo as studentNo, lt.typeCode as leaveTypeCode, lt.typeName as leaveTypeName, lr.status as status, lr.startDate as startDate, lr.endDate as endDate " +
+           "from LeaveRequest lr join Student s on s.id = lr.studentId join LeaveTypeConfig lt on lt.id = lr.leaveTypeId " +
+           "where (:classId is null or s.clazz.id = :classId) " +
+           "and (:status is null or lr.status = :status) " +
+           "and (:start is null or lr.endDate >= :start) " +
+           "and (:end is null or lr.startDate <= :end)")
+    List<CalendarProjection> findForCalendar(@Param("classId") Integer classId,
+                                             @Param("status") String status,
+                                             @Param("start") Date start,
+                                             @Param("end") Date end);
 }

@@ -8,7 +8,6 @@ import com.altair288.class_management.repository.StudentLeaveBalanceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -75,11 +74,23 @@ public class LeaveTypeConfigService {
      */
     @Transactional
     private void updateRelatedDataAfterConfigChange(LeaveTypeConfig oldConfig, LeaveTypeConfig newConfig) {
+        System.out.println("检查配置变更 - 旧额度: " + oldConfig.getAnnualAllowance() + ", 新额度: " + newConfig.getAnnualAllowance());
+        
         // 1. 如果年度额度发生变化，更新所有学生的年度余额
         if (!oldConfig.getAnnualAllowance().equals(newConfig.getAnnualAllowance())) {
-            updateStudentBalancesForAllowanceChange(newConfig.getId(), 
-                                                   oldConfig.getAnnualAllowance(), 
-                                                   newConfig.getAnnualAllowance());
+            System.out.println("年度额度发生变化，开始更新学生余额...");
+            // 优先使用批量 SQL 更新，确保所有记录（含历史年度）被同步
+            try {
+                int total = studentLeaveBalanceRepository.bulkUpdateAllYearsByType(newConfig.getId(), newConfig.getAnnualAllowance());
+                System.out.println("批量更新完成，影响记录数: " + total);
+            } catch (Exception ex) {
+                // 回退到逐条更新逻辑
+                System.out.println("批量更新失败，回退到逐条更新: " + ex.getMessage());
+                updateStudentBalancesForAllowanceChange(newConfig.getId(), 
+                                                       oldConfig.getAnnualAllowance(), 
+                                                       newConfig.getAnnualAllowance());
+            }
+            System.out.println("学生余额更新完成");
         }
         
         // 2. 如果请假类型被禁用，可以考虑是否需要处理正在进行的申请
@@ -93,30 +104,31 @@ public class LeaveTypeConfigService {
     private void updateStudentBalancesForAllowanceChange(Integer leaveTypeId, 
                                                         Integer oldAllowance, 
                                                         Integer newAllowance) {
-        // 获取当前年份
-        Integer currentYear = Calendar.getInstance().get(Calendar.YEAR);
-        
         // 获取该请假类型的所有学生余额记录
         List<StudentLeaveBalance> balances = studentLeaveBalanceRepository.findByLeaveTypeId(leaveTypeId);
+        System.out.println("找到 " + balances.size() + " 条学生余额记录需要更新");
         
         for (StudentLeaveBalance balance : balances) {
-            // 只更新当前年份的余额
-            if (currentYear.equals(balance.getYear())) {
-                // 计算新的总额度
-                balance.setTotalAllowance(newAllowance);
-                
-                // 重新计算剩余天数
-                Double usedDays = balance.getUsedDays() != null ? balance.getUsedDays() : 0.0;
-                balance.setRemainingDays(newAllowance - usedDays);
-                
-                // 确保剩余天数不能为负数
-                if (balance.getRemainingDays() < 0) {
-                    balance.setRemainingDays(0.0);
-                }
-                
-                balance.setUpdatedAt(new Date());
-                studentLeaveBalanceRepository.save(balance);
+            System.out.println("更新学生ID: " + balance.getStudentId() + 
+                             ", 年份: " + balance.getYear() + 
+                             ", 旧额度: " + balance.getTotalAllowance() + 
+                             " -> 新额度: " + newAllowance);
+            
+            // 计算新的总额度
+            balance.setTotalAllowance(newAllowance);
+            
+            // 重新计算剩余天数
+            Double usedDays = balance.getUsedDays() != null ? balance.getUsedDays() : 0.0;
+            balance.setRemainingDays(newAllowance - usedDays);
+            
+            // 确保剩余天数不能为负数
+            if (balance.getRemainingDays() < 0) {
+                balance.setRemainingDays(0.0);
             }
+            
+            balance.setUpdatedAt(new Date());
+            studentLeaveBalanceRepository.save(balance);
+            System.out.println("余额记录已更新: 剩余天数 = " + balance.getRemainingDays());
         }
     }
 
@@ -196,5 +208,22 @@ public class LeaveTypeConfigService {
         target.setEnabled(source.getEnabled());
         target.setCreatedAt(source.getCreatedAt());
         target.setUpdatedAt(source.getUpdatedAt());
+    }
+
+    /**
+     * 手动触发余额同步（当历史数据与配置不一致时）
+     */
+    @Transactional
+    public int syncBalancesForLeaveType(Integer leaveTypeId, boolean onlyCurrentYear) {
+        LeaveTypeConfig cfg = getLeaveTypeById(leaveTypeId);
+        if (cfg == null) throw new IllegalArgumentException("请假类型不存在");
+        int updated;
+        if (onlyCurrentYear) {
+            int year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
+            updated = studentLeaveBalanceRepository.bulkUpdateByTypeAndYear(leaveTypeId, year, cfg.getAnnualAllowance());
+        } else {
+            updated = studentLeaveBalanceRepository.bulkUpdateAllYearsByType(leaveTypeId, cfg.getAnnualAllowance());
+        }
+        return updated;
     }
 }
