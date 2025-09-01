@@ -30,6 +30,9 @@ public class StudentService {
     @Autowired
     private StudentEvaluationService studentEvaluationService;
 
+    @Autowired
+    private StudentLeaveBalanceService studentLeaveBalanceService;
+
     @Transactional
     public void importStudentsFromExcel(Integer classId, MultipartFile file) throws Exception {
         Class clazz = classService.getById(classId);
@@ -172,6 +175,12 @@ public class StudentService {
             }
             // 初始化完项目得分后，计算并落库总分与等级
             try { studentEvaluationService.recomputeForStudent(saved.getId()); } catch (Exception ignored) {}
+
+            // 新增学生时，同步初始化当年所有启用请假类型的余额
+            try {
+                Integer year = Calendar.getInstance().get(Calendar.YEAR);
+                studentLeaveBalanceService.initializeBalancesForStudentAllEnabled(saved.getId(), year);
+            } catch (Exception ignored) {}
         }
         return saved;
     }

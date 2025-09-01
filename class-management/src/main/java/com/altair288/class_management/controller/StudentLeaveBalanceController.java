@@ -187,4 +187,21 @@ public class StudentLeaveBalanceController {
             return ResponseEntity.badRequest().build();
         }
     }
+
+    // 为某个学生补齐所有启用类型余额（若已存在则跳过）
+    @PostMapping("/student/{studentId}/ensure-all")
+    public ResponseEntity<Void> ensureAllBalancesForStudent(
+            @PathVariable Integer studentId,
+            @RequestParam(required = false) String academicYear) {
+        try {
+            Integer year = parseAcademicYear(academicYear);
+            if (year == null) {
+                year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
+            }
+            studentLeaveBalanceService.initializeBalancesForStudentAllEnabled(studentId, year);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
 }

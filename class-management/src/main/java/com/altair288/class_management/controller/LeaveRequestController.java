@@ -2,6 +2,7 @@ package com.altair288.class_management.controller;
 
 import com.altair288.class_management.model.LeaveRequest;
 import com.altair288.class_management.model.LeaveTypeConfig;
+import com.altair288.class_management.dto.CurrentUserLeaveInfoDTO;
 import com.altair288.class_management.dto.LeaveCalendarDTO;
 import org.springframework.format.annotation.DateTimeFormat;
 import com.altair288.class_management.service.LeaveRequestService;
@@ -112,6 +113,13 @@ public class LeaveRequestController {
     public ResponseEntity<Map<String, Object>> getLeaveStatistics() {
         Map<String, Object> stats = leaveRequestService.getLeaveStatistics();
         return ResponseEntity.ok(stats);
+    }
+
+    // 获取当前登录用户信息，用于自动填充申请单
+    @GetMapping("/current-user-info")
+    public ResponseEntity<CurrentUserLeaveInfoDTO> getCurrentUserLeaveInfo() {
+        CurrentUserLeaveInfoDTO dto = leaveRequestService.getCurrentUserLeaveInfo();
+        return ResponseEntity.ok(dto);
     }
 
     // 获取请假类型配置

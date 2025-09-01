@@ -5,6 +5,7 @@ import com.altair288.class_management.model.StudentLeaveBalance;
 import com.altair288.class_management.repository.LeaveTypeConfigRepository;
 import com.altair288.class_management.repository.LeaveRequestRepository;
 import com.altair288.class_management.repository.StudentLeaveBalanceRepository;
+import com.altair288.class_management.repository.StudentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,12 @@ public class LeaveTypeConfigService {
     
     @Autowired
     private StudentLeaveBalanceRepository studentLeaveBalanceRepository;
+
+    @Autowired
+    private StudentRepository studentRepository;
+
+    @Autowired
+    private StudentLeaveBalanceService studentLeaveBalanceService;
 
     public List<LeaveTypeConfig> getAllActiveLeaveTypes() {
         return leaveTypeConfigRepository.findByEnabledTrueOrderByTypeCode();
@@ -58,12 +65,17 @@ public class LeaveTypeConfigService {
         }
         leaveTypeConfig.setUpdatedAt(new Date());
         
-        // 保存配置
-        LeaveTypeConfig savedConfig = leaveTypeConfigRepository.save(leaveTypeConfig);
+    // 保存配置
+    LeaveTypeConfig savedConfig = leaveTypeConfigRepository.save(leaveTypeConfig);
         
         // 如果是更新操作，需要同步更新相关数据
         if (isUpdate && oldConfig != null) {
             updateRelatedDataAfterConfigChange(oldConfig, savedConfig);
+        } else {
+            // 新增类型：若启用，则为所有学生初始化当年余额
+            if (Boolean.TRUE.equals(savedConfig.getEnabled())) {
+                initializeBalancesForNewlyActivatedType(savedConfig);
+            }
         }
         
         return savedConfig;
@@ -133,19 +145,14 @@ public class LeaveTypeConfigService {
     }
 
     public void deleteLeaveType(Integer id) {
-        // 检查是否有关联的请假申请
+        // 如存在关联数据，不再硬删除，改为逻辑禁用
         Long leaveRequestCount = leaveRequestRepository.countByLeaveTypeId(id);
-        if (leaveRequestCount > 0) {
-            throw new RuntimeException("无法删除该请假类型，因为已有 " + leaveRequestCount + " 条相关的请假申请");
-        }
-        
-        // 检查是否有关联的学生请假余额记录
         Long balanceCount = studentLeaveBalanceRepository.countByLeaveTypeId(id);
-        if (balanceCount > 0) {
-            throw new RuntimeException("无法删除该请假类型，因为已有 " + balanceCount + " 条相关的学生请假余额记录");
+        if ((leaveRequestCount != null && leaveRequestCount > 0) || (balanceCount != null && balanceCount > 0)) {
+            deactivateLeaveType(id);
+            return;
         }
-        
-        // 如果没有关联数据，则可以安全删除
+        // 无关联数据，允许物理删除（兼容早期无数据的配置）
         leaveTypeConfigRepository.deleteById(id);
     }
 
@@ -186,9 +193,15 @@ public class LeaveTypeConfigService {
      */
     @Transactional
     private void initializeBalancesForNewlyActivatedType(LeaveTypeConfig config) {
-        // 注释：这里可以根据业务需求决定是否需要为所有学生立即初始化余额
-        // 当前实现选择在学生首次使用该请假类型时再初始化余额记录
-        // 如果需要立即初始化，可以调用StudentService获取所有活跃学生，然后批量创建余额记录
+        try {
+            Integer year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
+            Integer allowance = config.getAnnualAllowance() == null ? 0 : config.getAnnualAllowance();
+            var allStudents = studentRepository.findAll();
+            if (allStudents == null || allStudents.isEmpty()) return;
+            java.util.List<Integer> ids = new java.util.ArrayList<>(allStudents.size());
+            for (var s : allStudents) { ids.add(s.getId()); }
+            studentLeaveBalanceService.batchInitializeBalances(ids, config.getId(), year, allowance);
+        } catch (Exception ignored) {}
     }
     
     /**

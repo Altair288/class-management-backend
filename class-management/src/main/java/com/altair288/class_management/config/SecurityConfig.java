@@ -45,6 +45,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/users/register/teacher").permitAll()
                 .requestMatchers("/api/users/login").permitAll()
                 .requestMatchers("/api/users/classes").permitAll()
+                .requestMatchers("/api/leave/current-user-info").authenticated()
                 // .requestMatchers("/api/credits/**").permitAll()
                 .anyRequest().authenticated()
             )

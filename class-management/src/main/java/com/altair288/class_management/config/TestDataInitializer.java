@@ -437,6 +437,10 @@ public class TestDataInitializer {
             studentLeaveBalanceService.initializeStudentBalance(sZhao6.getId(), personalLeaveConfig.getId(), currentYear, personalLeaveConfig.getAnnualAllowance());
             studentLeaveBalanceService.initializeStudentBalance(sZhao6.getId(), annualLeaveConfig.getId(), currentYear, annualLeaveConfig.getAnnualAllowance());
 
+            // 为王学生、李学生补齐所有启用类型的余额（同一年份）
+            studentLeaveBalanceService.initializeBalancesForStudentAllEnabled(student1.getId(), currentYear);
+            studentLeaveBalanceService.initializeBalancesForStudentAllEnabled(student.getId(), currentYear);
+
             // 旧初始化. 创建一些示例请假申请
 
             // // 张三的病假申请（已批准）

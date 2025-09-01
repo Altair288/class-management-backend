@@ -1,7 +1,9 @@
 package com.altair288.class_management.service;
 
 import com.altair288.class_management.model.StudentLeaveBalance;
+import com.altair288.class_management.model.LeaveTypeConfig;
 import com.altair288.class_management.repository.StudentLeaveBalanceRepository;
+import com.altair288.class_management.repository.LeaveTypeConfigRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +15,9 @@ public class StudentLeaveBalanceService {
     
     @Autowired
     private StudentLeaveBalanceRepository studentLeaveBalanceRepository;
+
+    @Autowired
+    private LeaveTypeConfigRepository leaveTypeConfigRepository;
 
     public List<StudentLeaveBalance> getStudentBalances(Integer studentId, Integer year) {
         if (year != null) {
@@ -145,6 +150,20 @@ public class StudentLeaveBalanceService {
                 balance.setUpdatedAt(new Date());
                 studentLeaveBalanceRepository.save(balance);
             }
+        }
+    }
+
+    /**
+     * 为指定学生在给定学年初始化所有启用的请假类型余额（若已存在则跳过）。
+     */
+    @Transactional
+    public void initializeBalancesForStudentAllEnabled(Integer studentId, Integer year) {
+        if (studentId == null) return;
+        if (year == null) year = Calendar.getInstance().get(Calendar.YEAR);
+        List<LeaveTypeConfig> types = leaveTypeConfigRepository.findByEnabledTrue();
+        for (LeaveTypeConfig t : types) {
+            Integer allowance = t.getAnnualAllowance() == null ? 0 : t.getAnnualAllowance();
+            initializeStudentBalance(studentId, t.getId(), year, allowance);
         }
     }
 }

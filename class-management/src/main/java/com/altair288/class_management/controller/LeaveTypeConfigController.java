@@ -110,7 +110,7 @@ public class LeaveTypeConfigController {
         return ResponseEntity.ok(resp);
     }
 
-    // 删除请假类型（硬删除，会检查关联数据）
+    // 删除请假类型：若存在关联数据则改为逻辑禁用
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteLeaveType(@PathVariable Integer id) {
         LeaveTypeConfig existing = leaveTypeConfigService.getLeaveTypeById(id);
@@ -122,8 +122,8 @@ public class LeaveTypeConfigController {
             leaveTypeConfigService.deleteLeaveType(id);
             return ResponseEntity.ok().build();
         } catch (RuntimeException e) {
-            // 如果有关联数据，返回错误信息
-            return ResponseEntity.badRequest().build();
+            // 理论上不会抛出，因为服务层已转为逻辑禁用，这里兜底返回 200
+            return ResponseEntity.ok().build();
         }
     }
 }

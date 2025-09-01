@@ -10,6 +10,9 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import com.altair288.class_management.dto.LeaveCalendarDTO;
+import com.altair288.class_management.dto.CurrentUserLeaveInfoDTO;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @Service
 public class LeaveRequestService {
@@ -24,6 +27,15 @@ public class LeaveRequestService {
     
     @Autowired
     private LeaveApprovalRepository leaveApprovalRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private StudentRepository studentRepository;
+
+    @Autowired
+    private TeacherRepository teacherRepository;
 
     @Transactional
     public LeaveRequest submitLeaveRequest(LeaveRequest leaveRequest) {
@@ -268,6 +280,55 @@ public class LeaveRequestService {
     public LeaveRequest save(LeaveRequest leaveRequest) {
         leaveRequest.setUpdatedAt(new Date());
         return leaveRequestRepository.save(leaveRequest);
+    }
+
+    // 获取当前登录用户用于自动填充申请单的信息
+    @Transactional(readOnly = true)
+    public CurrentUserLeaveInfoDTO getCurrentUserLeaveInfo() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getName() == null) {
+            throw new RuntimeException("未登录或无效的会话");
+        }
+        var user = userRepository.findByUsernameOrIdentityNo(auth.getName())
+                .orElseThrow(() -> new RuntimeException("用户不存在"));
+
+        CurrentUserLeaveInfoDTO dto = new CurrentUserLeaveInfoDTO();
+        dto.setUserId(user.getId());
+        String userTypeCn = switch (user.getUserType()) {
+            case STUDENT -> "学生";
+            case TEACHER -> "教师";
+            case PARENT -> "家长";
+            case ADMIN -> "管理员";
+        };
+        dto.setUserType(userTypeCn);
+
+        // 当为学生时：student 信息 + 班主任作为直属老师
+        if (user.getUserType() == User.UserType.STUDENT) {
+            Integer sid = user.getRelatedId();
+            var stu = sid == null ? null : studentRepository.findById(sid).orElse(null);
+            if (stu != null) {
+                dto.setStudentId(stu.getId());
+                dto.setStudentName(stu.getName());
+                dto.setPhone(stu.getPhone());
+                dto.setEmail(stu.getEmail());
+                var clazz = stu.getClazz();
+                if (clazz != null && clazz.getTeacher() != null) {
+                    dto.setTeacherId(clazz.getTeacher().getId());
+                    dto.setTeacherName(clazz.getTeacher().getName());
+                }
+            }
+        } else if (user.getUserType() == User.UserType.TEACHER) {
+            Integer tid = user.getRelatedId();
+            var t = tid == null ? null : teacherRepository.findById(tid).orElse(null);
+            if (t != null) {
+                dto.setTeacherId(t.getId());
+                dto.setTeacherName(t.getName());
+                dto.setPhone(t.getPhone());
+                dto.setEmail(t.getEmail());
+            }
+        }
+
+        return dto;
     }
 
     // 日历视图数据：一次查询连表返回轻量字段
