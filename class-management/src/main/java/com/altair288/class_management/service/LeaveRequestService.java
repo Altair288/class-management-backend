@@ -120,19 +120,70 @@ public class LeaveRequestService {
         return leaveRequestRepository.save(leaveRequest);
     }
 
+    @Transactional(readOnly = true)
     public Map<String, Object> getLeaveStatistics() {
         Map<String, Object> stats = new HashMap<>();
-        
-        Long totalRequests = leaveRequestRepository.count();
-        Long pendingRequests = leaveRequestRepository.countByStatus("待审批");
-        Long approvedRequests = leaveRequestRepository.countByStatus("已批准");
-        Long rejectedRequests = leaveRequestRepository.countByStatus("已拒绝");
-        
-        stats.put("total", totalRequests);
-        stats.put("pending", pendingRequests);
-        stats.put("approved", approvedRequests);
-        stats.put("rejected", rejectedRequests);
-        
+
+        // 基础计数：一次 count 各状态（这里用现有 repository 方法，底层单条 SQL）
+        long total = leaveRequestRepository.count();
+        long pending = Optional.ofNullable(leaveRequestRepository.countByStatus("待审批")).orElse(0L);
+        long approved = Optional.ofNullable(leaveRequestRepository.countByStatus("已批准")).orElse(0L);
+        long rejected = Optional.ofNullable(leaveRequestRepository.countByStatus("已拒绝")).orElse(0L);
+
+        stats.put("total", total);
+        stats.put("pending", pending);
+        stats.put("approved", approved);
+        stats.put("rejected", rejected);
+
+        // 审批时长统计：从提交到审核完成（仅取已批准），避免 N+1，仅取必要字段
+        var durations = leaveRequestRepository.findApprovalDurations();
+        if (durations != null && !durations.isEmpty()) {
+            long sumMs = 0L;
+            long maxMs = Long.MIN_VALUE;
+            long minMs = Long.MAX_VALUE;
+            int n = 0;
+            for (var d : durations) {
+                Date c = d.getCreatedAt();
+                Date r = d.getReviewedAt();
+                if (c != null && r != null && r.after(c)) {
+                    long ms = r.getTime() - c.getTime();
+                    sumMs += ms;
+                    maxMs = Math.max(maxMs, ms);
+                    minMs = Math.min(minMs, ms);
+                    n++;
+                }
+            }
+            Map<String, Object> durationStat = new HashMap<>();
+            if (n > 0) {
+                durationStat.put("avgHours", (double) sumMs / n / 3600000.0);
+                durationStat.put("minHours", (double) minMs / 3600000.0);
+                durationStat.put("maxHours", (double) maxMs / 3600000.0);
+                durationStat.put("count", n);
+            } else {
+                durationStat.put("avgHours", 0.0);
+                durationStat.put("minHours", 0.0);
+                durationStat.put("maxHours", 0.0);
+                durationStat.put("count", 0);
+            }
+            stats.put("approvalDuration", durationStat);
+        } else {
+            stats.put("approvalDuration", Map.of("avgHours", 0.0, "minHours", 0.0, "maxHours", 0.0, "count", 0));
+        }
+
+        // 请假类型次数统计：一次聚合查询
+        var typeCounts = leaveRequestRepository.countByLeaveTypeGrouped();
+        List<Map<String, Object>> typeList = new ArrayList<>();
+        if (typeCounts != null) {
+            for (var t : typeCounts) {
+                Map<String, Object> row = new HashMap<>();
+                row.put("typeCode", t.getTypeCode());
+                row.put("typeName", t.getTypeName());
+                row.put("count", t.getCount());
+                typeList.add(row);
+            }
+        }
+        stats.put("typeCounts", typeList);
+
         return stats;
     }
 

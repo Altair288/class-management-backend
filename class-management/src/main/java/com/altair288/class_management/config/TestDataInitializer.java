@@ -437,81 +437,81 @@ public class TestDataInitializer {
             studentLeaveBalanceService.initializeStudentBalance(sZhao6.getId(), personalLeaveConfig.getId(), currentYear, personalLeaveConfig.getAnnualAllowance());
             studentLeaveBalanceService.initializeStudentBalance(sZhao6.getId(), annualLeaveConfig.getId(), currentYear, annualLeaveConfig.getAnnualAllowance());
 
-            // 3. 创建一些示例请假申请
-            
-            // 张三的病假申请（已批准）
-            LeaveRequest sickLeave1 = new LeaveRequest();
-            sickLeave1.setStudentId(sZhang3.getId());
-            sickLeave1.setLeaveTypeId(sickLeaveConfig.getId());
-            sickLeave1.setStartDate(new Date(System.currentTimeMillis() - 5 * 24 * 60 * 60 * 1000L)); // 5天前
-            sickLeave1.setEndDate(new Date(System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000L)); // 3天前
-            sickLeave1.setDays(2.0);
-            sickLeave1.setReason("感冒发烧需要休息");
-            // 不直接设状态，提交后再调用批准逻辑
-            sickLeave1.setCreatedAt(new Date(System.currentTimeMillis() - 6 * 24 * 60 * 60 * 1000L)); // 6天前提交
-            sickLeave1.setEmergencyContact("张父亲");
-            sickLeave1.setEmergencyPhone("13800138001");
-            sickLeave1 = leaveRequestService.submitLeaveRequest(sickLeave1);
-            leaveRequestService.approveLeaveRequest(sickLeave1.getId(), teacher.getId(), "初始化批准");
+            // 旧初始化. 创建一些示例请假申请
 
-            // 李四的事假申请（待审批）
-            LeaveRequest personalLeave1 = new LeaveRequest();
-            personalLeave1.setStudentId(sLi4.getId());
-            personalLeave1.setLeaveTypeId(personalLeaveConfig.getId());
-            personalLeave1.setStartDate(new Date(System.currentTimeMillis() + 3 * 24 * 60 * 60 * 1000L)); // 3天后
-            personalLeave1.setEndDate(new Date(System.currentTimeMillis() + 4 * 24 * 60 * 60 * 1000L)); // 4天后
-            personalLeave1.setDays(1.0);
-            personalLeave1.setReason("家庭事务处理");
-            // 待审批：仅提交，不直接写状态，由服务默认置为待审批
-            personalLeave1.setCreatedAt(new Date(System.currentTimeMillis() - 2 * 60 * 60 * 1000L)); // 2小时前提交
-            personalLeave1.setEmergencyContact("李母亲");
-            personalLeave1.setEmergencyPhone("13800138002");
-            personalLeave1 = leaveRequestService.submitLeaveRequest(personalLeave1);
+            // // 张三的病假申请（已批准）
+            // LeaveRequest sickLeave1 = new LeaveRequest();
+            // sickLeave1.setStudentId(sZhang3.getId());
+            // sickLeave1.setLeaveTypeId(sickLeaveConfig.getId());
+            // sickLeave1.setStartDate(new Date(System.currentTimeMillis() - 5 * 24 * 60 * 60 * 1000L)); // 5天前
+            // sickLeave1.setEndDate(new Date(System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000L)); // 3天前
+            // sickLeave1.setDays(2.0);
+            // sickLeave1.setReason("感冒发烧需要休息");
+            // // 不直接设状态，提交后再调用批准逻辑
+            // sickLeave1.setCreatedAt(new Date(System.currentTimeMillis() - 6 * 24 * 60 * 60 * 1000L)); // 6天前提交
+            // sickLeave1.setEmergencyContact("张父亲");
+            // sickLeave1.setEmergencyPhone("13800138001");
+            // sickLeave1 = leaveRequestService.submitLeaveRequest(sickLeave1);
+            // leaveRequestService.approveLeaveRequest(sickLeave1.getId(), teacher.getId(), "初始化批准");
 
-            // 王五的年假申请（已批准）
-            LeaveRequest annualLeave1 = new LeaveRequest();
-            annualLeave1.setStudentId(sWang5.getId());
-            annualLeave1.setLeaveTypeId(annualLeaveConfig.getId());
-            annualLeave1.setStartDate(new Date(System.currentTimeMillis() + 10 * 24 * 60 * 60 * 1000L)); // 10天后
-            annualLeave1.setEndDate(new Date(System.currentTimeMillis() + 14 * 24 * 60 * 60 * 1000L)); // 14天后
-            annualLeave1.setDays(5.0);
-            annualLeave1.setReason("年假旅游");
-            // 不直接设状态，提交后再调用批准逻辑
-            annualLeave1.setCreatedAt(new Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L)); // 7天前提交
-            annualLeave1.setEmergencyContact("王配偶");
-            annualLeave1.setEmergencyPhone("13800138003");
-            annualLeave1 = leaveRequestService.submitLeaveRequest(annualLeave1);
-            leaveRequestService.approveLeaveRequest(annualLeave1.getId(), teacher.getId(), "初始化批准");
+            // // 李四的事假申请（待审批）
+            // LeaveRequest personalLeave1 = new LeaveRequest();
+            // personalLeave1.setStudentId(sLi4.getId());
+            // personalLeave1.setLeaveTypeId(personalLeaveConfig.getId());
+            // personalLeave1.setStartDate(new Date(System.currentTimeMillis() + 3 * 24 * 60 * 60 * 1000L)); // 3天后
+            // personalLeave1.setEndDate(new Date(System.currentTimeMillis() + 4 * 24 * 60 * 60 * 1000L)); // 4天后
+            // personalLeave1.setDays(1.0);
+            // personalLeave1.setReason("家庭事务处理");
+            // // 待审批：仅提交，不直接写状态，由服务默认置为待审批
+            // personalLeave1.setCreatedAt(new Date(System.currentTimeMillis() - 2 * 60 * 60 * 1000L)); // 2小时前提交
+            // personalLeave1.setEmergencyContact("李母亲");
+            // personalLeave1.setEmergencyPhone("13800138002");
+            // personalLeave1 = leaveRequestService.submitLeaveRequest(personalLeave1);
 
-            // 赵六的病假申请（被拒绝）
-            LeaveRequest sickLeave2 = new LeaveRequest();
-            sickLeave2.setStudentId(sZhao6.getId());
-            sickLeave2.setLeaveTypeId(sickLeaveConfig.getId());
-            sickLeave2.setStartDate(new Date(System.currentTimeMillis() - 2 * 24 * 60 * 60 * 1000L)); // 2天前
-            sickLeave2.setEndDate(new Date(System.currentTimeMillis() - 1 * 24 * 60 * 60 * 1000L)); // 1天前
-            sickLeave2.setDays(1.0);
-            sickLeave2.setReason("身体不适");
-            // 不直接设状态，提交后再调用拒绝逻辑
-            sickLeave2.setCreatedAt(new Date(System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000L)); // 3天前提交
-            sickLeave2.setEmergencyContact("赵父亲");
-            sickLeave2.setEmergencyPhone("13800138004");
-            sickLeave2 = leaveRequestService.submitLeaveRequest(sickLeave2);
-            leaveRequestService.rejectLeaveRequest(sickLeave2.getId(), teacher.getId(), "初始化拒绝");
+            // // 王五的年假申请（已批准）
+            // LeaveRequest annualLeave1 = new LeaveRequest();
+            // annualLeave1.setStudentId(sWang5.getId());
+            // annualLeave1.setLeaveTypeId(annualLeaveConfig.getId());
+            // annualLeave1.setStartDate(new Date(System.currentTimeMillis() + 10 * 24 * 60 * 60 * 1000L)); // 10天后
+            // annualLeave1.setEndDate(new Date(System.currentTimeMillis() + 14 * 24 * 60 * 60 * 1000L)); // 14天后
+            // annualLeave1.setDays(5.0);
+            // annualLeave1.setReason("年假旅游");
+            // // 不直接设状态，提交后再调用批准逻辑
+            // annualLeave1.setCreatedAt(new Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L)); // 7天前提交
+            // annualLeave1.setEmergencyContact("王配偶");
+            // annualLeave1.setEmergencyPhone("13800138003");
+            // annualLeave1 = leaveRequestService.submitLeaveRequest(annualLeave1);
+            // leaveRequestService.approveLeaveRequest(annualLeave1.getId(), teacher.getId(), "初始化批准");
 
-            // 张三的紧急事假申请（待审批）
-            LeaveRequest emergencyLeave = new LeaveRequest();
-            emergencyLeave.setStudentId(sZhang3.getId());
-            emergencyLeave.setLeaveTypeId(personalLeaveConfig.getId());
-            emergencyLeave.setStartDate(new Date(System.currentTimeMillis() + 2 * 60 * 60 * 1000L)); // 2小时后
-            emergencyLeave.setEndDate(new Date(System.currentTimeMillis() + 8 * 60 * 60 * 1000L)); // 8小时后
-            emergencyLeave.setDays(1.0); // 半天按1天计算
-            emergencyLeave.setReason("家庭紧急情况");
-            // 待审批：仅提交，不直接写状态，由服务默认置为待审批
-            emergencyLeave.setCreatedAt(new Date(System.currentTimeMillis() - 30 * 60 * 1000L)); // 30分钟前提交
-            emergencyLeave.setEmergencyContact("张父亲");
-            emergencyLeave.setEmergencyPhone("13800138001");
-            emergencyLeave.setHandoverNotes("已安排同学代课");
-            emergencyLeave = leaveRequestService.submitLeaveRequest(emergencyLeave);
+            // // 赵六的病假申请（被拒绝）
+            // LeaveRequest sickLeave2 = new LeaveRequest();
+            // sickLeave2.setStudentId(sZhao6.getId());
+            // sickLeave2.setLeaveTypeId(sickLeaveConfig.getId());
+            // sickLeave2.setStartDate(new Date(System.currentTimeMillis() - 2 * 24 * 60 * 60 * 1000L)); // 2天前
+            // sickLeave2.setEndDate(new Date(System.currentTimeMillis() - 1 * 24 * 60 * 60 * 1000L)); // 1天前
+            // sickLeave2.setDays(1.0);
+            // sickLeave2.setReason("身体不适");
+            // // 不直接设状态，提交后再调用拒绝逻辑
+            // sickLeave2.setCreatedAt(new Date(System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000L)); // 3天前提交
+            // sickLeave2.setEmergencyContact("赵父亲");
+            // sickLeave2.setEmergencyPhone("13800138004");
+            // sickLeave2 = leaveRequestService.submitLeaveRequest(sickLeave2);
+            // leaveRequestService.rejectLeaveRequest(sickLeave2.getId(), teacher.getId(), "初始化拒绝");
+
+            // // 张三的紧急事假申请（待审批）
+            // LeaveRequest emergencyLeave = new LeaveRequest();
+            // emergencyLeave.setStudentId(sZhang3.getId());
+            // emergencyLeave.setLeaveTypeId(personalLeaveConfig.getId());
+            // emergencyLeave.setStartDate(new Date(System.currentTimeMillis() + 2 * 60 * 60 * 1000L)); // 2小时后
+            // emergencyLeave.setEndDate(new Date(System.currentTimeMillis() + 8 * 60 * 60 * 1000L)); // 8小时后
+            // emergencyLeave.setDays(1.0); // 半天按1天计算
+            // emergencyLeave.setReason("家庭紧急情况");
+            // // 待审批：仅提交，不直接写状态，由服务默认置为待审批
+            // emergencyLeave.setCreatedAt(new Date(System.currentTimeMillis() - 30 * 60 * 1000L)); // 30分钟前提交
+            // emergencyLeave.setEmergencyContact("张父亲");
+            // emergencyLeave.setEmergencyPhone("13800138001");
+            // emergencyLeave.setHandoverNotes("已安排同学代课");
+            // emergencyLeave = leaveRequestService.submitLeaveRequest(emergencyLeave);
 
             // ====== 追加：6-8月的 10 条示例请假（2025 年）======
             // 帮助方法：构造 yyyy-MM-dd 的 Date

@@ -62,4 +62,27 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Inte
     // 通过审批表按教师+状态查询
     @Query("select lr from LeaveRequest lr where lr.status = :status and exists (select 1 from LeaveApproval la where la.leaveId = lr.id and la.teacherId = :teacherId)")
     List<LeaveRequest> findByApproverAndStatus(@Param("teacherId") Integer teacherId, @Param("status") String status);
+
+    // 审批时长统计所需的轻量字段投影（仅查询已批准的单据，避免 N+1）
+    interface ApprovalDurationProjection {
+        Date getCreatedAt();
+        Date getReviewedAt();
+    }
+
+    @Query("select lr.createdAt as createdAt, la.reviewedAt as reviewedAt " +
+           "from LeaveRequest lr join LeaveApproval la on la.leaveId = lr.id " +
+           "where lr.status = '已批准' and la.status = '已批准'")
+    List<ApprovalDurationProjection> findApprovalDurations();
+
+    // 请假类型分组计数（前端统计使用），一次聚合避免循环查询
+    interface TypeCountProjection {
+        String getTypeCode();
+        String getTypeName();
+        Long getCount();
+    }
+
+    @Query("select lt.typeCode as typeCode, lt.typeName as typeName, count(lr.id) as count " +
+           "from LeaveRequest lr join LeaveTypeConfig lt on lt.id = lr.leaveTypeId " +
+           "group by lt.id, lt.typeCode, lt.typeName")
+    List<TypeCountProjection> countByLeaveTypeGrouped();
 }
