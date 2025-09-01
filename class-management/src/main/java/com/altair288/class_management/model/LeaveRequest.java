@@ -15,8 +15,7 @@ public class LeaveRequest {
     @Column(name = "student_id")
     private Integer studentId;
 
-    @Column(name = "teacher_id")
-    private Integer teacherId;
+    // 去除 teacher_id：审批人改由 leave_approval 记录
 
     @Column(name = "leave_type_id")
     private Integer leaveTypeId;
@@ -62,9 +61,7 @@ public class LeaveRequest {
     @JoinColumn(name = "student_id", insertable = false, updatable = false)
     private Student student;
 
-    @ManyToOne
-    @JoinColumn(name = "teacher_id", insertable = false, updatable = false)
-    private Teacher teacher;
+    // 去除对 Teacher 的直接关联，由 LeaveApproval 承担审批人与请假单的关系
 
     @ManyToOne
     @JoinColumn(name = "leave_type_id", insertable = false, updatable = false)
@@ -95,13 +92,7 @@ public class LeaveRequest {
         this.studentId = studentId;
     }
 
-    public Integer getTeacherId() {
-        return teacherId;
-    }
-
-    public void setTeacherId(Integer teacherId) {
-        this.teacherId = teacherId;
-    }
+    // 移除 teacherId 的 Getter/Setter
 
     public Integer getLeaveTypeId() {
         return leaveTypeId;
@@ -215,13 +206,7 @@ public class LeaveRequest {
         this.student = student;
     }
 
-    public Teacher getTeacher() {
-        return teacher;
-    }
-
-    public void setTeacher(Teacher teacher) {
-        this.teacher = teacher;
-    }
+    // 移除与 Teacher 的直接映射 Getter/Setter
 
     public LeaveTypeConfig getLeaveTypeConfig() {
         return leaveTypeConfig;

@@ -280,7 +280,6 @@ CREATE TABLE `file_storage_config` (
 CREATE TABLE `leave_request` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '请假ID',
   `student_id` int NOT NULL COMMENT '请假学生ID',
-  `teacher_id` int DEFAULT NULL COMMENT '审批教师ID',
   `leave_type_id` int NOT NULL COMMENT '请假类型ID',
   `start_date` date NOT NULL COMMENT '请假开始日期',
   `end_date` date NOT NULL COMMENT '请假结束日期',
@@ -296,12 +295,10 @@ CREATE TABLE `leave_request` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
   PRIMARY KEY (`id`),
   KEY `student_id` (`student_id`),
-  KEY `teacher_id` (`teacher_id`),
   KEY `leave_type_id` (`leave_type_id`),
   KEY `status` (`status`),
   KEY `start_date` (`start_date`),
   CONSTRAINT `leave_request_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `student` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `leave_request_ibfk_2` FOREIGN KEY (`teacher_id`) REFERENCES `teacher` (`id`) ON DELETE SET NULL,
   CONSTRAINT `leave_request_ibfk_3` FOREIGN KEY (`leave_type_id`) REFERENCES `leave_type_config` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

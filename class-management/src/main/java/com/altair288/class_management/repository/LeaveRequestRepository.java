@@ -9,10 +9,8 @@ import java.util.Date;
 
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Integer> {
     List<LeaveRequest> findByStudentId(Integer studentId);
-    List<LeaveRequest> findByTeacherId(Integer teacherId);
     List<LeaveRequest> findByStatus(String status);
     List<LeaveRequest> findByStudentIdAndStatus(Integer studentId, String status);
-    List<LeaveRequest> findByTeacherIdAndStatus(Integer teacherId, String status);
     List<LeaveRequest> findByLeaveTypeId(Integer leaveTypeId);
     
     @Query("SELECT lr FROM LeaveRequest lr WHERE lr.startDate >= :startDate AND lr.endDate <= :endDate")
@@ -56,4 +54,12 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Inte
                                              @Param("status") String status,
                                              @Param("start") Date start,
                                              @Param("end") Date end);
+
+    // 通过审批表按教师查询其关联的请假单（单级审批，一单一记录）
+    @Query("select lr from LeaveRequest lr where exists (select 1 from LeaveApproval la where la.leaveId = lr.id and la.teacherId = :teacherId)")
+    List<LeaveRequest> findByApprover(@Param("teacherId") Integer teacherId);
+
+    // 通过审批表按教师+状态查询
+    @Query("select lr from LeaveRequest lr where lr.status = :status and exists (select 1 from LeaveApproval la where la.leaveId = lr.id and la.teacherId = :teacherId)")
+    List<LeaveRequest> findByApproverAndStatus(@Param("teacherId") Integer teacherId, @Param("status") String status);
 }

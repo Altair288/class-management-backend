@@ -54,7 +54,7 @@ public class LeaveRequestService {
     }
 
     public List<LeaveRequest> getLeaveRequestsByTeacher(Integer teacherId) {
-        return leaveRequestRepository.findByTeacherId(teacherId);
+    return leaveRequestRepository.findByApprover(teacherId);
     }
 
     public List<LeaveRequest> getLeaveRequestsByStatus(String status) {

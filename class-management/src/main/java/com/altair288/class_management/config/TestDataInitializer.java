@@ -92,10 +92,24 @@ public class TestDataInitializer {
             Teacher teacher = new Teacher();
             teacher.setName("张老师");
             teacher.setTeacherNo("T2024001");
-            teacher.setPhone("13800000001");
+            teacher.setPhone("138033000001");
             teacher.setEmail("teacher@example.com");
             teacher = teacherService.save(teacher);
-            
+
+            Teacher teacher2 = new Teacher();
+            teacher2.setName("李老师");
+            teacher2.setTeacherNo("T2024002");
+            teacher2.setPhone("138033000002");
+            teacher2.setEmail("teacher2@example.com");
+            teacher2 = teacherService.save(teacher2);
+
+            Teacher teacher3 = new Teacher();
+            teacher3.setName("王老师");
+            teacher3.setTeacherNo("T2024003");
+            teacher3.setPhone("138033000003");
+            teacher3.setEmail("teacher3@example.com");
+            teacher3 = teacherService.save(teacher3);
+
             // 再创建班级，并设置教师
             com.altair288.class_management.model.Class clazz1 = new com.altair288.class_management.model.Class();
             clazz1.setName("21计算机网络1班");
@@ -178,6 +192,22 @@ public class TestDataInitializer {
             teacherUser.setRelatedId(teacher.getId());
             teacherUser = userService.registerUser(teacherUser);
 
+            User teacherUser2 = new User(null);
+            teacherUser2.setUsername(teacher2.getName());
+            teacherUser2.setIdentityNo(teacher2.getTeacherNo());
+            teacherUser2.setPassword(initialPassword);
+            teacherUser2.setUserType(User.UserType.TEACHER);
+            teacherUser2.setRelatedId(teacher2.getId());
+            teacherUser2 = userService.registerUser(teacherUser2);
+
+            User teacherUser3 = new User(null);
+            teacherUser3.setUsername(teacher3.getName());
+            teacherUser3.setIdentityNo(teacher3.getTeacherNo());
+            teacherUser3.setPassword(initialPassword);
+            teacherUser3.setUserType(User.UserType.TEACHER);
+            teacherUser3.setRelatedId(teacher3.getId());
+            teacherUser3 = userService.registerUser(teacherUser3);
+
             User studentUser1 = new User(null);
             studentUser1.setUsername(student1.getName());
             studentUser1.setIdentityNo(student1.getStudentNo());
@@ -214,7 +244,7 @@ public class TestDataInitializer {
             userRoleService.assignRoleToUser(adminUser.getId(), adminRole.getId());
             userRoleService.assignRoleToUser(teacherUser.getId(), teacherRole.getId());
             userRoleService.assignRoleToUser(studentUser.getId(), studentRole.getId());
-            userRoleService.assignRoleToUser(parentUser.getId(), parentUser.getId()); // 家长也可以是学生角色
+            userRoleService.assignRoleToUser(parentUser.getId(), parentRole.getId()); // 家长分配家长角色
 
             // 分配权限
             RolePermission adminCreateUser = new RolePermission();
@@ -417,12 +447,12 @@ public class TestDataInitializer {
             sickLeave1.setEndDate(new Date(System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000L)); // 3天前
             sickLeave1.setDays(2.0);
             sickLeave1.setReason("感冒发烧需要休息");
-            sickLeave1.setStatus("已批准");
+            // 不直接设状态，提交后再调用批准逻辑
             sickLeave1.setCreatedAt(new Date(System.currentTimeMillis() - 6 * 24 * 60 * 60 * 1000L)); // 6天前提交
-            sickLeave1.setUpdatedAt(new Date(System.currentTimeMillis() - 4 * 24 * 60 * 60 * 1000L)); // 4天前批准
             sickLeave1.setEmergencyContact("张父亲");
             sickLeave1.setEmergencyPhone("13800138001");
             sickLeave1 = leaveRequestService.submitLeaveRequest(sickLeave1);
+            leaveRequestService.approveLeaveRequest(sickLeave1.getId(), teacher.getId(), "初始化批准");
 
             // 李四的事假申请（待审批）
             LeaveRequest personalLeave1 = new LeaveRequest();
@@ -432,9 +462,8 @@ public class TestDataInitializer {
             personalLeave1.setEndDate(new Date(System.currentTimeMillis() + 4 * 24 * 60 * 60 * 1000L)); // 4天后
             personalLeave1.setDays(1.0);
             personalLeave1.setReason("家庭事务处理");
-            personalLeave1.setStatus("待审批");
+            // 待审批：仅提交，不直接写状态，由服务默认置为待审批
             personalLeave1.setCreatedAt(new Date(System.currentTimeMillis() - 2 * 60 * 60 * 1000L)); // 2小时前提交
-            personalLeave1.setUpdatedAt(new Date(System.currentTimeMillis() - 2 * 60 * 60 * 1000L));
             personalLeave1.setEmergencyContact("李母亲");
             personalLeave1.setEmergencyPhone("13800138002");
             personalLeave1 = leaveRequestService.submitLeaveRequest(personalLeave1);
@@ -447,12 +476,12 @@ public class TestDataInitializer {
             annualLeave1.setEndDate(new Date(System.currentTimeMillis() + 14 * 24 * 60 * 60 * 1000L)); // 14天后
             annualLeave1.setDays(5.0);
             annualLeave1.setReason("年假旅游");
-            annualLeave1.setStatus("已批准");
+            // 不直接设状态，提交后再调用批准逻辑
             annualLeave1.setCreatedAt(new Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L)); // 7天前提交
-            annualLeave1.setUpdatedAt(new Date(System.currentTimeMillis() - 5 * 24 * 60 * 60 * 1000L)); // 5天前批准
             annualLeave1.setEmergencyContact("王配偶");
             annualLeave1.setEmergencyPhone("13800138003");
             annualLeave1 = leaveRequestService.submitLeaveRequest(annualLeave1);
+            leaveRequestService.approveLeaveRequest(annualLeave1.getId(), teacher.getId(), "初始化批准");
 
             // 赵六的病假申请（被拒绝）
             LeaveRequest sickLeave2 = new LeaveRequest();
@@ -462,12 +491,12 @@ public class TestDataInitializer {
             sickLeave2.setEndDate(new Date(System.currentTimeMillis() - 1 * 24 * 60 * 60 * 1000L)); // 1天前
             sickLeave2.setDays(1.0);
             sickLeave2.setReason("身体不适");
-            sickLeave2.setStatus("已拒绝");
+            // 不直接设状态，提交后再调用拒绝逻辑
             sickLeave2.setCreatedAt(new Date(System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000L)); // 3天前提交
-            sickLeave2.setUpdatedAt(new Date(System.currentTimeMillis() - 2 * 24 * 60 * 60 * 1000L)); // 2天前拒绝
             sickLeave2.setEmergencyContact("赵父亲");
             sickLeave2.setEmergencyPhone("13800138004");
             sickLeave2 = leaveRequestService.submitLeaveRequest(sickLeave2);
+            leaveRequestService.rejectLeaveRequest(sickLeave2.getId(), teacher.getId(), "初始化拒绝");
 
             // 张三的紧急事假申请（待审批）
             LeaveRequest emergencyLeave = new LeaveRequest();
@@ -477,9 +506,8 @@ public class TestDataInitializer {
             emergencyLeave.setEndDate(new Date(System.currentTimeMillis() + 8 * 60 * 60 * 1000L)); // 8小时后
             emergencyLeave.setDays(1.0); // 半天按1天计算
             emergencyLeave.setReason("家庭紧急情况");
-            emergencyLeave.setStatus("待审批");
+            // 待审批：仅提交，不直接写状态，由服务默认置为待审批
             emergencyLeave.setCreatedAt(new Date(System.currentTimeMillis() - 30 * 60 * 1000L)); // 30分钟前提交
-            emergencyLeave.setUpdatedAt(new Date(System.currentTimeMillis() - 30 * 60 * 1000L));
             emergencyLeave.setEmergencyContact("张父亲");
             emergencyLeave.setEmergencyPhone("13800138001");
             emergencyLeave.setHandoverNotes("已安排同学代课");

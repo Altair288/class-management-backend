@@ -158,8 +158,8 @@ public class LeaveRequestController {
             return ResponseEntity.badRequest().build();
         }
         
-        // 这里应该实现删除逻辑，但为了数据完整性，建议只是更改状态而不是真正删除
-        existing.setStatus("已取消");
+    // 这里应该实现删除逻辑，但为了数据完整性，建议只是更改状态而不是真正删除
+    existing.setStatus("已撤销");
         leaveRequestService.save(existing);
         
         return ResponseEntity.ok().build();
