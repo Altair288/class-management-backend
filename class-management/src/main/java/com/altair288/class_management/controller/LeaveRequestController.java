@@ -40,14 +40,14 @@ public class LeaveRequestController {
     }
 
     // 获取教师负责的请假申请
-    @GetMapping("/teacher/{teacherId}")
+    @GetMapping("/teacher/{teacherId}") // 教师用户身份接口
     public ResponseEntity<List<LeaveRequest>> getLeaveRequestsByTeacher(@PathVariable Integer teacherId) {
         List<LeaveRequest> requests = leaveRequestService.getLeaveRequestsByTeacher(teacherId);
         return ResponseEntity.ok(requests);
     }
 
     // 获取所有请假申请
-    @GetMapping("/all")
+    @GetMapping("/all") // 管理员用户身份接口
     public ResponseEntity<List<LeaveRequest>> getAllLeaveRequests() {
         List<LeaveRequest> requests = leaveRequestService.getAll();
         return ResponseEntity.ok(requests);
