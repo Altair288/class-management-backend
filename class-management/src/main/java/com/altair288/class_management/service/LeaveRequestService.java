@@ -57,6 +57,26 @@ public class LeaveRequestService {
         
         // 更新学生请假余额
         updateStudentLeaveBalance(saved);
+
+        // 自动创建一条待审批记录，指向学生班主任
+        try {
+            if (saved.getStudentId() != null) {
+                var stuOpt = studentRepository.findById(saved.getStudentId());
+                if (stuOpt.isPresent()) {
+                    var clazz = stuOpt.get().getClazz();
+                    if (clazz != null && clazz.getTeacher() != null && clazz.getTeacher().getId() != null) {
+                        Integer approverId = clazz.getTeacher().getId();
+                        LeaveApproval pending = new LeaveApproval();
+                        pending.setLeaveId(saved.getId());
+                        pending.setTeacherId(approverId);
+                        pending.setStatus("待审批");
+                        pending.setReviewedAt(null);
+                        pending.setComment(null);
+                        leaveApprovalRepository.save(pending);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
         
         return saved;
     }
@@ -95,14 +115,15 @@ public class LeaveRequestService {
         leaveRequest.setStatus("已批准");
         leaveRequest.setUpdatedAt(new Date());
         
-        // 创建审批记录
-        LeaveApproval approval = new LeaveApproval();
-        approval.setLeaveId(id);
-        approval.setTeacherId(approverId);
-        approval.setStatus("已批准");
-        approval.setComment(comments);
-        approval.setReviewedAt(new Date());
-        leaveApprovalRepository.save(approval);
+    // 更新或创建审批记录（优先更新提交时的待审批记录）
+    var exist = leaveApprovalRepository.findByLeaveIdAndTeacherId(id, approverId);
+    LeaveApproval approval = exist.orElseGet(LeaveApproval::new);
+    approval.setLeaveId(id);
+    approval.setTeacherId(approverId);
+    approval.setStatus("已批准");
+    approval.setComment(comments);
+    approval.setReviewedAt(new Date());
+    leaveApprovalRepository.save(approval);
         
         return leaveRequestRepository.save(leaveRequest);
     }
@@ -117,14 +138,15 @@ public class LeaveRequestService {
         leaveRequest.setStatus("已拒绝");
         leaveRequest.setUpdatedAt(new Date());
         
-        // 创建审批记录
-        LeaveApproval approval = new LeaveApproval();
-        approval.setLeaveId(id);
-        approval.setTeacherId(approverId);
-        approval.setStatus("已拒绝");
-        approval.setComment(comments);
-        approval.setReviewedAt(new Date());
-        leaveApprovalRepository.save(approval);
+    // 更新或创建审批记录
+    var exist = leaveApprovalRepository.findByLeaveIdAndTeacherId(id, approverId);
+    LeaveApproval approval = exist.orElseGet(LeaveApproval::new);
+    approval.setLeaveId(id);
+    approval.setTeacherId(approverId);
+    approval.setStatus("已拒绝");
+    approval.setComment(comments);
+    approval.setReviewedAt(new Date());
+    leaveApprovalRepository.save(approval);
         
         // 恢复学生请假余额
         restoreStudentLeaveBalance(leaveRequest);
@@ -302,7 +324,8 @@ public class LeaveRequestService {
         };
         dto.setUserType(userTypeCn);
 
-        // 当为学生时：student 信息 + 班主任作为直属老师
+
+        // 当为学生时：student 信息 + 班级 + 班主任
         if (user.getUserType() == User.UserType.STUDENT) {
             Integer sid = user.getRelatedId();
             var stu = sid == null ? null : studentRepository.findById(sid).orElse(null);
@@ -312,9 +335,13 @@ public class LeaveRequestService {
                 dto.setPhone(stu.getPhone());
                 dto.setEmail(stu.getEmail());
                 var clazz = stu.getClazz();
-                if (clazz != null && clazz.getTeacher() != null) {
-                    dto.setTeacherId(clazz.getTeacher().getId());
-                    dto.setTeacherName(clazz.getTeacher().getName());
+                if (clazz != null) {
+                    dto.setClassId(clazz.getId());
+                    dto.setClassName(clazz.getName());
+                    if (clazz.getTeacher() != null) {
+                        dto.setTeacherId(clazz.getTeacher().getId());
+                        dto.setTeacherName(clazz.getTeacher().getName());
+                    }
                 }
             }
         } else if (user.getUserType() == User.UserType.TEACHER) {

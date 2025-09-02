@@ -9,6 +9,8 @@ public class CurrentUserLeaveInfoDTO {
     private String teacherName;
     private String phone;
     private String email;
+    private Integer classId;
+    private String className;
 
     public CurrentUserLeaveInfoDTO() {}
 
@@ -29,4 +31,8 @@ public class CurrentUserLeaveInfoDTO {
     public void setPhone(String phone) { this.phone = phone; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+    public Integer getClassId() { return classId; }
+    public void setClassId(Integer classId) { this.classId = classId; }
+    public String getClassName() { return className; }
+    public void setClassName(String className) { this.className = className; }
 }
