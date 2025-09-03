@@ -17,6 +17,18 @@ public class LeaveApproval {
     @Column(name = "teacher_id")
     private Integer teacherId;
 
+    @Column(name = "workflow_id")
+    private Integer workflowId;
+
+    @Column(name = "step_order")
+    private Integer stepOrder;
+
+    @Column(name = "step_name")
+    private String stepName;
+
+    @Column(name = "approver_role")
+    private String approverRole;
+
     @Column(name = "status")
     private String status;
 
@@ -25,6 +37,12 @@ public class LeaveApproval {
 
     @Column(name = "reviewed_at")
     private Date reviewedAt;
+
+    @Column(name = "created_at")
+    private Date createdAt;
+
+    @Column(name = "updated_at")
+    private Date updatedAt;
 
     // 关联实体
     @ManyToOne
@@ -83,6 +101,54 @@ public class LeaveApproval {
 
     public void setReviewedAt(Date reviewedAt) {
         this.reviewedAt = reviewedAt;
+    }
+
+    public Integer getWorkflowId() {
+        return workflowId;
+    }
+
+    public void setWorkflowId(Integer workflowId) {
+        this.workflowId = workflowId;
+    }
+
+    public Integer getStepOrder() {
+        return stepOrder;
+    }
+
+    public void setStepOrder(Integer stepOrder) {
+        this.stepOrder = stepOrder;
+    }
+
+    public String getStepName() {
+        return stepName;
+    }
+
+    public void setStepName(String stepName) {
+        this.stepName = stepName;
+    }
+
+    public String getApproverRole() {
+        return approverRole;
+    }
+
+    public void setApproverRole(String approverRole) {
+        this.approverRole = approverRole;
+    }
+
+    public Date getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Date createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Date getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Date updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
     public LeaveRequest getLeaveRequest() {

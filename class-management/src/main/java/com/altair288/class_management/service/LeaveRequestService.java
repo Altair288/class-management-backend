@@ -37,6 +37,17 @@ public class LeaveRequestService {
     @Autowired
     private TeacherRepository teacherRepository;
 
+    @Autowired
+    private LeaveTypeWorkflowRepository leaveTypeWorkflowRepository;
+
+    // 仅按请假类型绑定流程，去除班级覆盖
+
+    @Autowired
+    private ApprovalStepRepository approvalStepRepository;
+
+    @Autowired
+    private RoleAssignmentRepository roleAssignmentRepository;
+
     @Transactional
     public LeaveRequest submitLeaveRequest(LeaveRequest leaveRequest) {
         // 设置基本信息
@@ -57,28 +68,85 @@ public class LeaveRequestService {
         
         // 更新学生请假余额
         updateStudentLeaveBalance(saved);
-
-        // 自动创建一条待审批记录，指向学生班主任
-        try {
-            if (saved.getStudentId() != null) {
-                var stuOpt = studentRepository.findById(saved.getStudentId());
-                if (stuOpt.isPresent()) {
-                    var clazz = stuOpt.get().getClazz();
-                    if (clazz != null && clazz.getTeacher() != null && clazz.getTeacher().getId() != null) {
-                        Integer approverId = clazz.getTeacher().getId();
-                        LeaveApproval pending = new LeaveApproval();
-                        pending.setLeaveId(saved.getId());
-                        pending.setTeacherId(approverId);
-                        pending.setStatus("待审批");
-                        pending.setReviewedAt(null);
-                        pending.setComment(null);
-                        leaveApprovalRepository.save(pending);
-                    }
-                }
-            }
-        } catch (Exception ignored) {}
+        
+        // 基于配置解析流程，创建第一步待审批
+        createFirstApprovalStep(saved);
         
         return saved;
+    }
+
+    private void createFirstApprovalStep(LeaveRequest saved) {
+        try {
+            Integer classId = null;
+            String grade = null;
+            if (saved.getStudentId() != null) {
+                var stuOpt = studentRepository.findById(saved.getStudentId());
+                if (stuOpt.isPresent() && stuOpt.get().getClazz() != null) {
+                    classId = stuOpt.get().getClazz().getId();
+                    grade = stuOpt.get().getClazz().getGrade();
+                }
+            }
+
+        // 仅按请假类型解析流程
+        Integer workflowId = leaveTypeWorkflowRepository
+            .findActiveByLeaveTypeId(saved.getLeaveTypeId())
+            .map(w -> w.getWorkflowId())
+            .orElse(null);
+
+            if (workflowId == null) {
+                return; // 未配置流程则不创建审批
+            }
+
+            var steps = approvalStepRepository.findEnabledStepsByWorkflow(workflowId);
+            if (steps == null || steps.isEmpty()) return;
+
+            var first = steps.get(0);
+            Integer approverId = resolveApproverId(first.getApproverRole(), classId, grade);
+            if (approverId == null) return;
+
+            LeaveApproval pending = new LeaveApproval();
+            pending.setLeaveId(saved.getId());
+            pending.setWorkflowId(workflowId);
+            pending.setStepOrder(first.getStepOrder());
+            pending.setStepName(first.getStepName());
+            pending.setApproverRole(first.getApproverRole());
+            pending.setTeacherId(approverId);
+            pending.setStatus("待审批");
+            pending.setReviewedAt(null);
+            pending.setComment(null);
+            pending.setCreatedAt(new Date());
+            pending.setUpdatedAt(new Date());
+            leaveApprovalRepository.save(pending);
+        } catch (Exception ignored) {}
+    }
+
+    private Integer resolveApproverId(String role, Integer classId, String grade) {
+        // 班级 > 年级 > 全局 > 班主任兜底
+        if (classId != null) {
+            var c = roleAssignmentRepository.findByRoleAndClass(role, classId);
+            if (c.isPresent()) return c.get().getTeacherId();
+        }
+        if (grade != null) {
+            var g = roleAssignmentRepository.findByRoleAndGrade(role, grade);
+            if (g.isPresent()) return g.get().getTeacherId();
+        }
+        var glob = roleAssignmentRepository.findGlobalByRole(role);
+        if (glob.isPresent()) return glob.get().getTeacherId();
+
+        // 兜底：如果角色为班主任，返回班主任
+        if ("班主任".equals(role) && classId != null) {
+        var classOpt = classId == null ? Optional.<com.altair288.class_management.model.Class>empty() : Optional.ofNullable(
+            studentRepository.findAll().stream()
+                .map(com.altair288.class_management.model.Student::getClazz)
+                            .filter(Objects::nonNull)
+                            .filter(c -> classId.equals(c.getId()))
+                            .findFirst().orElse(null)
+            );
+            if (classOpt.isPresent() && classOpt.get().getTeacher() != null) {
+                return classOpt.get().getTeacher().getId();
+            }
+        }
+        return null;
     }
 
     public List<LeaveRequest> getLeaveRequestsByStudent(Integer studentId) {
@@ -111,20 +179,61 @@ public class LeaveRequestService {
         if (leaveRequest == null) {
             throw new RuntimeException("请假申请不存在");
         }
-        
-        leaveRequest.setStatus("已批准");
+        // 更新当前步骤为已批准
+        var exist = leaveApprovalRepository.findByLeaveIdAndTeacherId(id, approverId);
+        LeaveApproval approval = exist.orElseGet(LeaveApproval::new);
+        approval.setLeaveId(id);
+        approval.setTeacherId(approverId);
+        approval.setStatus("已批准");
+        approval.setComment(comments);
+        approval.setReviewedAt(new Date());
+        approval.setUpdatedAt(new Date());
+        leaveApprovalRepository.save(approval);
+
+        // 推进到下一步
+        Integer workflowId = approval.getWorkflowId();
+        Integer currentOrder = approval.getStepOrder();
+        if (workflowId != null && currentOrder != null) {
+            var steps = approvalStepRepository.findEnabledStepsByWorkflow(workflowId);
+            // 找下一步
+            var next = steps.stream().filter(s -> s.getStepOrder() > currentOrder).findFirst();
+            if (next.isPresent()) {
+                // 创建下一步待审批
+                Integer classId = null; String grade = null;
+                var stu = leaveRequest.getStudentId() == null ? null : studentRepository.findById(leaveRequest.getStudentId()).orElse(null);
+                if (stu != null && stu.getClazz() != null) { classId = stu.getClazz().getId(); grade = stu.getClazz().getGrade(); }
+                Integer approverIdNext = resolveApproverId(next.get().getApproverRole(), classId, grade);
+                if (approverIdNext != null) {
+                    LeaveApproval pending = new LeaveApproval();
+                    pending.setLeaveId(id);
+                    pending.setWorkflowId(workflowId);
+                    pending.setStepOrder(next.get().getStepOrder());
+                    pending.setStepName(next.get().getStepName());
+                    pending.setApproverRole(next.get().getApproverRole());
+                    pending.setTeacherId(approverIdNext);
+                    pending.setStatus("待审批");
+                    pending.setCreatedAt(new Date());
+                    pending.setUpdatedAt(new Date());
+                    leaveApprovalRepository.save(pending);
+                }
+            } else {
+                // 已是最后一步，结束流程
+                leaveRequest.setStatus("已批准");
+                leaveRequest.setReviewedAt(new Date());
+                leaveRequest.setUpdatedAt(new Date());
+                return leaveRequestRepository.save(leaveRequest);
+            }
+        } else {
+            // 无流程信息，单级审批兼容
+            leaveRequest.setStatus("已批准");
+            leaveRequest.setReviewedAt(new Date());
+            leaveRequest.setUpdatedAt(new Date());
+            return leaveRequestRepository.save(leaveRequest);
+        }
+
+        // 还有后续步骤，保持单据为待审批
+        leaveRequest.setStatus("待审批");
         leaveRequest.setUpdatedAt(new Date());
-        
-    // 更新或创建审批记录（优先更新提交时的待审批记录）
-    var exist = leaveApprovalRepository.findByLeaveIdAndTeacherId(id, approverId);
-    LeaveApproval approval = exist.orElseGet(LeaveApproval::new);
-    approval.setLeaveId(id);
-    approval.setTeacherId(approverId);
-    approval.setStatus("已批准");
-    approval.setComment(comments);
-    approval.setReviewedAt(new Date());
-    leaveApprovalRepository.save(approval);
-        
         return leaveRequestRepository.save(leaveRequest);
     }
 
@@ -135,7 +244,7 @@ public class LeaveRequestService {
             throw new RuntimeException("请假申请不存在");
         }
         
-        leaveRequest.setStatus("已拒绝");
+    leaveRequest.setStatus("已拒绝");
         leaveRequest.setUpdatedAt(new Date());
         
     // 更新或创建审批记录
@@ -146,6 +255,7 @@ public class LeaveRequestService {
     approval.setStatus("已拒绝");
     approval.setComment(comments);
     approval.setReviewedAt(new Date());
+    approval.setUpdatedAt(new Date());
     leaveApprovalRepository.save(approval);
         
         // 恢复学生请假余额

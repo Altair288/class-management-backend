@@ -325,20 +325,96 @@ CREATE TABLE `leave_attachment` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
--- class_management.leave_approval definition
+-- 审批流程模板表
+CREATE TABLE `approval_workflow` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '流程ID',
+  `workflow_name` varchar(100) NOT NULL COMMENT '流程名称',
+  `workflow_code` varchar(50) NOT NULL COMMENT '流程代码（用于程序识别）',
+  `description` text COMMENT '流程描述',
+  `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `workflow_code` (`workflow_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+CREATE TABLE `approval_step` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '步骤ID',
+  `workflow_id` int NOT NULL COMMENT '所属流程ID',
+  `step_order` int NOT NULL COMMENT '步骤顺序（1,2,3...）',
+  `step_name` varchar(50) NOT NULL COMMENT '步骤名称',
+  `approver_role` enum('班主任','年级主任','教务主任','校长') NOT NULL COMMENT '审批人角色',
+  `auto_approve` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否自动通过',
+  `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  PRIMARY KEY (`id`),
+  KEY `workflow_id` (`workflow_id`),
+  UNIQUE KEY `uk_workflow_step` (`workflow_id`, `step_order`),
+  CONSTRAINT `approval_step_ibfk_1` FOREIGN KEY (`workflow_id`) REFERENCES `approval_workflow` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+-- class_management.leave_approval definition（放在 workflow 与 step 之后，保证外键可用）
 
 CREATE TABLE `leave_approval` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '审批记录ID',
   `leave_id` int NOT NULL COMMENT '请假申请ID',
   `teacher_id` int NOT NULL COMMENT '审批教师ID',
-  `status` enum('待审批','已批准','已拒绝') NOT NULL COMMENT '审批结果',
-  `reviewed_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '审批时间',
+  `workflow_id` int DEFAULT NULL COMMENT '所属审批流程ID',
+  `step_order` int NOT NULL DEFAULT 1 COMMENT '审批步骤序号',
+  `step_name` varchar(50) DEFAULT NULL COMMENT '审批步骤名称',
+  `approver_role` varchar(20) DEFAULT NULL COMMENT '审批人角色',
+  `status` enum('待审批','已批准','已拒绝') NOT NULL DEFAULT '待审批' COMMENT '审批结果',
+  `reviewed_at` timestamp NULL DEFAULT NULL COMMENT '审批完成时间',
   `comment` text COMMENT '审批意见',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `leave_id` (`leave_id`),
   KEY `teacher_id` (`teacher_id`),
+  KEY `idx_workflow` (`workflow_id`),
+  KEY `idx_leave_step` (`leave_id`, `step_order`),
+  UNIQUE KEY `uk_leave_step_teacher` (`leave_id`, `step_order`, `teacher_id`),
   CONSTRAINT `leave_approval_ibfk_1` FOREIGN KEY (`leave_id`) REFERENCES `leave_request` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `leave_approval_ibfk_2` FOREIGN KEY (`teacher_id`) REFERENCES `teacher` (`id`) ON DELETE CASCADE
+  CONSTRAINT `leave_approval_ibfk_2` FOREIGN KEY (`teacher_id`) REFERENCES `teacher` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `leave_approval_ibfk_3` FOREIGN KEY (`workflow_id`) REFERENCES `approval_workflow` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `leave_type_workflow` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '关联ID',
+  `leave_type_id` int NOT NULL COMMENT '请假类型ID',
+  `workflow_id` int NOT NULL COMMENT '审批流程ID',
+  `condition_expression` text COMMENT '可空；条件表达式（JSON），通常留空，表示直接绑定流程',
+  `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `leave_type_id` (`leave_type_id`),
+  KEY `workflow_id` (`workflow_id`),
+  UNIQUE KEY `uk_leave_type_unique` (`leave_type_id`),
+  CONSTRAINT `leave_type_workflow_ibfk_1` FOREIGN KEY (`leave_type_id`) REFERENCES `leave_type_config` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `leave_type_workflow_ibfk_2` FOREIGN KEY (`workflow_id`) REFERENCES `approval_workflow` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+-- 按班级覆盖的请假类型-流程关联：当存在匹配记录时，优先于全局 leave_type_workflow
+
+-- 审批人绑定：将“审批角色”在不同作用域（班级/年级/校级）绑定到具体教师，无需改代码即可更换审批人
+CREATE TABLE `role_assignment` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `role` enum('班主任','年级主任','教务主任','校长') NOT NULL COMMENT '审批角色',
+  `teacher_id` int NOT NULL COMMENT '被绑定的教师ID',
+  `class_id` int DEFAULT NULL COMMENT '班级作用域（优先级最高）',
+  `grade` varchar(20) DEFAULT NULL COMMENT '年级作用域（如：高一/初二，次于班级）',
+  `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `teacher_id` (`teacher_id`),
+  KEY `class_id` (`class_id`),
+  KEY `grade` (`grade`),
+  KEY `idx_scope_role` (`role`, `class_id`, `grade`),
+  CONSTRAINT `fk_ra_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `teacher` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ra_class` FOREIGN KEY (`class_id`) REFERENCES `class` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
@@ -400,3 +476,47 @@ INSERT INTO `file_storage_config` (`bucket_name`, `bucket_purpose`, `max_file_si
 ('leave-attachments', '请假申请附件', 5242880, '["pdf", "jpg", "jpeg", "png", "doc", "docx"]', '["application/pdf", "image/jpeg", "image/png", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]', 1095, 0),
 ('student-documents', '学生证明文件', 10485760, '["pdf", "jpg", "jpeg", "png"]', '["application/pdf", "image/jpeg", "image/png"]', 2190, 0),
 ('system-backups', '系统备份文件', 1073741824, '["zip", "sql", "tar", "gz"]', '["application/zip", "application/sql", "application/x-tar", "application/gzip"]', 90, 1);
+
+-- 插入审批流程模板
+INSERT INTO `approval_workflow` (`workflow_name`, `workflow_code`, `description`) VALUES
+('单级审批', 'single_level', '班主任直接审批'),
+('两级审批', 'two_level', '班主任审批后，年级主任审批'),
+('三级审批', 'three_level', '班主任、年级主任、教务主任依次审批'),
+('校长审批', 'principal_approval', '班主任、年级主任、教务主任、校长依次审批');
+
+-- 插入审批步骤
+-- 单级审批
+INSERT INTO `approval_step` (`workflow_id`, `step_order`, `step_name`, `approver_role`) VALUES
+(1, 1, '班主任审批', '班主任');
+
+-- 两级审批
+INSERT INTO `approval_step` (`workflow_id`, `step_order`, `step_name`, `approver_role`) VALUES
+(2, 1, '班主任审批', '班主任'),
+(2, 2, '年级主任审批', '年级主任');
+
+-- 三级审批
+INSERT INTO `approval_step` (`workflow_id`, `step_order`, `step_name`, `approver_role`) VALUES
+(3, 1, '班主任审批', '班主任'),
+(3, 2, '年级主任审批', '年级主任'),
+(3, 3, '教务主任审批', '教务主任');
+
+-- 校长审批
+INSERT INTO `approval_step` (`workflow_id`, `step_order`, `step_name`, `approver_role`) VALUES
+(4, 1, '班主任审批', '班主任'),
+(4, 2, '年级主任审批', '年级主任'),
+(4, 3, '教务主任审批', '教务主任'),
+(4, 4, '校长审批', '校长');
+
+-- 配置请假类型与审批流程的关联
+INSERT INTO `leave_type_workflow` (`leave_type_id`, `workflow_id`, `condition_expression`) VALUES
+-- 默认：直接绑定每个类型一个流程（前端可修改）
+((SELECT id FROM leave_type_config WHERE type_code = 'annual'), 2, NULL),
+((SELECT id FROM leave_type_config WHERE type_code = 'sick'), 1, NULL),
+((SELECT id FROM leave_type_config WHERE type_code = 'personal'), 1, NULL),
+((SELECT id FROM leave_type_config WHERE type_code = 'maternity'), 4, NULL),
+((SELECT id FROM leave_type_config WHERE type_code = 'emergency'), 1, NULL);
+
+-- 扩展teacher表支持行政角色
+ALTER TABLE `teacher` 
+ADD COLUMN `administrative_role` enum('班主任','年级主任','教务主任','校长','普通教师') DEFAULT '普通教师' COMMENT '行政角色',
+ADD COLUMN `managed_grade` varchar(20) DEFAULT NULL COMMENT '管理的年级（年级主任使用）';
