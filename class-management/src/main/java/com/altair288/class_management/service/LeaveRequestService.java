@@ -78,12 +78,17 @@ public class LeaveRequestService {
     private void createFirstApprovalStep(LeaveRequest saved) {
         try {
             Integer classId = null;
+            Integer departmentId = null;
             String grade = null;
             if (saved.getStudentId() != null) {
                 var stuOpt = studentRepository.findById(saved.getStudentId());
                 if (stuOpt.isPresent() && stuOpt.get().getClazz() != null) {
-                    classId = stuOpt.get().getClazz().getId();
-                    grade = stuOpt.get().getClazz().getGrade();
+                    var clz = stuOpt.get().getClazz();
+                    classId = clz.getId();
+                    grade = clz.getGrade();
+                    if (clz.getDepartment() != null) {
+                        departmentId = clz.getDepartment().getId();
+                    }
                 }
             }
 
@@ -101,7 +106,7 @@ public class LeaveRequestService {
             if (steps == null || steps.isEmpty()) return;
 
             var first = steps.get(0);
-            Integer approverId = resolveApproverId(first.getApproverRole(), classId, grade);
+            Integer approverId = resolveApproverId(first.getApproverRole(), classId, departmentId, grade);
             if (approverId == null) return;
 
             LeaveApproval pending = new LeaveApproval();
@@ -120,11 +125,15 @@ public class LeaveRequestService {
         } catch (Exception ignored) {}
     }
 
-    private Integer resolveApproverId(String role, Integer classId, String grade) {
-        // 班级 > 年级 > 全局 > 班主任兜底
+    private Integer resolveApproverId(String role, Integer classId, Integer departmentId, String grade) {
+        // 班级 > 系部 > 年级 > 全局 > 班主任兜底
         if (classId != null) {
             var c = roleAssignmentRepository.findByRoleAndClass(role, classId);
             if (c.isPresent()) return c.get().getTeacherId();
+        }
+        if (departmentId != null) {
+            var d = roleAssignmentRepository.findByRoleAndDepartment(role, departmentId);
+            if (d.isPresent()) return d.get().getTeacherId();
         }
         if (grade != null) {
             var g = roleAssignmentRepository.findByRoleAndGrade(role, grade);
@@ -134,7 +143,7 @@ public class LeaveRequestService {
         if (glob.isPresent()) return glob.get().getTeacherId();
 
         // 兜底：如果角色为班主任，返回班主任
-        if ("班主任".equals(role) && classId != null) {
+    if ("班主任".equals(role) && classId != null) {
         var classOpt = classId == null ? Optional.<com.altair288.class_management.model.Class>empty() : Optional.ofNullable(
             studentRepository.findAll().stream()
                 .map(com.altair288.class_management.model.Student::getClazz)
@@ -199,10 +208,16 @@ public class LeaveRequestService {
             var next = steps.stream().filter(s -> s.getStepOrder() > currentOrder).findFirst();
             if (next.isPresent()) {
                 // 创建下一步待审批
-                Integer classId = null; String grade = null;
+                Integer classId = null; Integer departmentId = null; String grade = null;
                 var stu = leaveRequest.getStudentId() == null ? null : studentRepository.findById(leaveRequest.getStudentId()).orElse(null);
-                if (stu != null && stu.getClazz() != null) { classId = stu.getClazz().getId(); grade = stu.getClazz().getGrade(); }
-                Integer approverIdNext = resolveApproverId(next.get().getApproverRole(), classId, grade);
+                if (stu != null && stu.getClazz() != null) {
+                    classId = stu.getClazz().getId();
+                    grade = stu.getClazz().getGrade();
+                    if (stu.getClazz().getDepartment() != null) {
+                        departmentId = stu.getClazz().getDepartment().getId();
+                    }
+                }
+                Integer approverIdNext = resolveApproverId(next.get().getApproverRole(), classId, departmentId, grade);
                 if (approverIdNext != null) {
                     LeaveApproval pending = new LeaveApproval();
                     pending.setLeaveId(id);

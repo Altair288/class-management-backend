@@ -19,6 +19,9 @@ public class RoleAssignment {
     @Column(name = "class_id")
     private Integer classId;
 
+    @Column(name = "department_id")
+    private Integer departmentId;
+
     @Column(name = "grade")
     private String grade;
 
@@ -39,6 +42,8 @@ public class RoleAssignment {
     public void setTeacherId(Integer teacherId) { this.teacherId = teacherId; }
     public Integer getClassId() { return classId; }
     public void setClassId(Integer classId) { this.classId = classId; }
+    public Integer getDepartmentId() { return departmentId; }
+    public void setDepartmentId(Integer departmentId) { this.departmentId = departmentId; }
     public String getGrade() { return grade; }
     public void setGrade(String grade) { this.grade = grade; }
     public Boolean getEnabled() { return enabled; }

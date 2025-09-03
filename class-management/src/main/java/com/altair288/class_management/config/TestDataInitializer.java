@@ -36,6 +36,8 @@ public class TestDataInitializer {
     @Autowired private LeaveRequestService leaveRequestService;
     @Autowired private StudentLeaveBalanceService studentLeaveBalanceService;
     @Autowired private com.altair288.class_management.repository.LeaveTypeConfigRepository leaveTypeConfigRepository;
+    @Autowired private com.altair288.class_management.repository.DepartmentRepository departmentRepository;
+    @Autowired private com.altair288.class_management.repository.RoleAssignmentRepository roleAssignmentRepository;
     private final CreditItemService creditItemService;
 
     public TestDataInitializer(UserService userService, RoleService roleService, PermissionService permissionService, UserRoleService userRoleService, RolePermissionService rolePermissionService, TeacherService teacherService, StudentService studentService, ParentService parentService, ClassService classService, StudentCreditService studentCreditService, CreditItemRepository creditItemRepository, CreditItemService creditItemService, LeaveTypeConfigService leaveTypeConfigService, LeaveRequestService leaveRequestService, StudentLeaveBalanceService studentLeaveBalanceService) {
@@ -159,6 +161,43 @@ public class TestDataInitializer {
             clazz8.setGrade("2022");
             clazz8 = classService.save(clazz8);
 
+            // ====== 系部与角色指派（用于审批链解析）======
+            // 1) 创建三个系部（若不存在）：信息系、机电系、服装系
+            Department deptInfo = departmentRepository.findByCode("INFO").orElseGet(() -> {
+                Department d = new Department();
+                d.setName("信息系");
+                d.setCode("INFO");
+                d.setDescription("信息工程与计算机相关专业");
+                d.setEnabled(true);
+                return departmentRepository.save(d);
+            });
+            departmentRepository.findByCode("MECH").orElseGet(() -> {
+                Department d = new Department();
+                d.setName("机电系");
+                d.setCode("MECH");
+                d.setDescription("机械与电气相关专业");
+                d.setEnabled(true);
+                return departmentRepository.save(d);
+            });
+            departmentRepository.findByCode("FASH").orElseGet(() -> {
+                Department d = new Department();
+                d.setName("服装系");
+                d.setCode("FASH");
+                d.setDescription("服装与设计相关专业");
+                d.setEnabled(true);
+                return departmentRepository.save(d);
+            });
+
+            // 2) 绑定部分班级到信息系（示例；审批解析将优先使用班级→系部）
+            clazz1.setDepartment(deptInfo); classService.save(clazz1);
+            clazz2.setDepartment(deptInfo); classService.save(clazz2);
+            clazz3.setDepartment(deptInfo); classService.save(clazz3);
+            clazz4.setDepartment(deptInfo); classService.save(clazz4);
+            clazz5.setDepartment(deptInfo); classService.save(clazz5);
+            clazz6.setDepartment(deptInfo); classService.save(clazz6);
+            clazz7.setDepartment(deptInfo); classService.save(clazz7);
+            clazz8.setDepartment(deptInfo); classService.save(clazz8);
+
             // 创建学生并设置班级
             Student student1 = new Student();
             student1.setName("王学生");
@@ -272,6 +311,38 @@ public class TestDataInitializer {
             cls2024b.setTeacher(teacher);
             cls2024b.setGrade("2024");
             cls2024b = classService.save(cls2024b);
+
+            // 3) 绑定 2024 班级到信息系
+            cls2024a.setDepartment(deptInfo); classService.save(cls2024a);
+            cls2024b.setDepartment(deptInfo); classService.save(cls2024b);
+
+            // 4) 角色指派：
+            // - 系部主任（信息系） -> 李老师（teacher2）
+            if (roleAssignmentRepository.findByRoleAndDepartment("系部主任", deptInfo.getId()).isEmpty()) {
+                RoleAssignment raDept = new RoleAssignment();
+                raDept.setRole("系部主任");
+                raDept.setTeacherId(teacher2.getId());
+                raDept.setDepartmentId(deptInfo.getId());
+                raDept.setEnabled(true);
+                roleAssignmentRepository.save(raDept);
+            }
+            // - 年级主任（2024） -> 王老师（teacher3）
+            if (roleAssignmentRepository.findByRoleAndGrade("年级主任", "2024").isEmpty()) {
+                RoleAssignment raGrade = new RoleAssignment();
+                raGrade.setRole("年级主任");
+                raGrade.setTeacherId(teacher3.getId());
+                raGrade.setGrade("2024");
+                raGrade.setEnabled(true);
+                roleAssignmentRepository.save(raGrade);
+            }
+            // - 校长（全局） -> 张老师（teacher，仅示例）
+            if (roleAssignmentRepository.findGlobalByRole("校长").isEmpty()) {
+                RoleAssignment raGlobal = new RoleAssignment();
+                raGlobal.setRole("校长");
+                raGlobal.setTeacherId(teacher.getId());
+                raGlobal.setEnabled(true);
+                roleAssignmentRepository.save(raGlobal);
+            }
 
             // 新增示例学生（与截图一致的姓名/学号/班级）
             Student sZhang3 = new Student();

@@ -20,6 +20,10 @@ public class Class {
     @JoinColumn(name = "teacher_id")
     private Teacher teacher;
 
+    @ManyToOne
+    @JoinColumn(name = "department_id")
+    private Department department;
+
     @Column(name = "created_at")
     private Date createdAt;
 
@@ -35,6 +39,9 @@ public class Class {
 
     public Teacher getTeacher() { return teacher; }
     public void setTeacher(Teacher teacher) { this.teacher = teacher; }
+
+    public Department getDepartment() { return department; }
+    public void setDepartment(Department department) { this.department = department; }
 
     public Date getCreatedAt() { return createdAt; }
     public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }

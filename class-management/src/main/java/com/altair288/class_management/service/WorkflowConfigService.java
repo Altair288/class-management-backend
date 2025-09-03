@@ -49,6 +49,14 @@ public class WorkflowConfigService {
     public void deleteStep(Integer stepId) { stepRepo.deleteById(stepId); }
 
     // Global type binding
+    public List<LeaveTypeWorkflow> listTypeBindings() {
+        return typeMapRepo.findAll();
+    }
+
+    public Optional<LeaveTypeWorkflow> getTypeBinding(Integer leaveTypeId) {
+        return typeMapRepo.findActiveByLeaveTypeId(leaveTypeId);
+    }
+
     @Transactional
     public LeaveTypeWorkflow upsertTypeBinding(Integer leaveTypeId, Integer workflowId) {
         var existing = typeMapRepo.findActiveByLeaveTypeId(leaveTypeId);

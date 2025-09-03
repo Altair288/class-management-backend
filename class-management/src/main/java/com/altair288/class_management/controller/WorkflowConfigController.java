@@ -61,6 +61,18 @@ public class WorkflowConfigController {
     }
 
     // Global type binding
+    @GetMapping("/bindings")
+    public ResponseEntity<List<LeaveTypeWorkflow>> listTypeBindings() {
+        return ResponseEntity.ok(svc.listTypeBindings());
+    }
+
+    @GetMapping("/bind/type/{leaveTypeId}")
+    public ResponseEntity<LeaveTypeWorkflow> getTypeBinding(@PathVariable Integer leaveTypeId) {
+        return svc.getTypeBinding(leaveTypeId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.ok().build());
+    }
+
     @PutMapping("/bind/type/{leaveTypeId}/workflow/{workflowId}")
     public ResponseEntity<LeaveTypeWorkflow> bindType(@PathVariable Integer leaveTypeId, @PathVariable Integer workflowId) {
         return ResponseEntity.ok(svc.upsertTypeBinding(leaveTypeId, workflowId));

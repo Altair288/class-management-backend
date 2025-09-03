@@ -35,19 +35,52 @@ CREATE TABLE `teacher` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
+-- 系部表（需在 class 之前创建，供外键引用）
+CREATE TABLE IF NOT EXISTS `department` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '系部ID',
+  `name` varchar(50) NOT NULL COMMENT '系部名称',
+  `code` varchar(20) NOT NULL COMMENT '系部代码',
+  `description` text NULL COMMENT '描述',
+  `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_department_code` (`code`),
+  UNIQUE KEY `uk_department_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
 -- class_management.class definition
 
 CREATE TABLE `class` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '班级ID',
   `name` varchar(50) NOT NULL COMMENT '班级名称',
   `teacher_id` int DEFAULT NULL COMMENT '班主任ID',
+  `department_id` int DEFAULT NULL COMMENT '所属系部ID',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `grade` VARCHAR(20) NOT NULL DEFAULT '' COMMENT '年级',
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`),
   KEY `teacher_id` (`teacher_id`),
+  KEY `department_id` (`department_id`),
   CONSTRAINT `class_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `teacher` (`id`) ON DELETE SET NULL
+  ,CONSTRAINT `fk_class_department` FOREIGN KEY (`department_id`) REFERENCES `department`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 新增：系部表与班级-系部关联（需在引用前创建）
+CREATE TABLE IF NOT EXISTS `department` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '系部ID',
+  `name` varchar(50) NOT NULL COMMENT '系部名称',
+  `code` varchar(20) NOT NULL COMMENT '系部代码',
+  `description` text NULL COMMENT '描述',
+  `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_department_code` (`code`),
+  UNIQUE KEY `uk_department_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 
 
 -- class_management.class_notice definition
@@ -344,7 +377,7 @@ CREATE TABLE `approval_step` (
   `workflow_id` int NOT NULL COMMENT '所属流程ID',
   `step_order` int NOT NULL COMMENT '步骤顺序（1,2,3...）',
   `step_name` varchar(50) NOT NULL COMMENT '步骤名称',
-  `approver_role` enum('班主任','年级主任','教务主任','校长') NOT NULL COMMENT '审批人角色',
+  `approver_role` enum('班主任','系部主任','年级主任','教务主任','校长') NOT NULL COMMENT '审批人角色',
   `auto_approve` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否自动通过',
   `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
   PRIMARY KEY (`id`),
@@ -401,9 +434,10 @@ CREATE TABLE `leave_type_workflow` (
 -- 审批人绑定：将“审批角色”在不同作用域（班级/年级/校级）绑定到具体教师，无需改代码即可更换审批人
 CREATE TABLE `role_assignment` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '记录ID',
-  `role` enum('班主任','年级主任','教务主任','校长') NOT NULL COMMENT '审批角色',
+  `role` enum('班主任','系部主任','年级主任','教务主任','校长') NOT NULL COMMENT '审批角色',
   `teacher_id` int NOT NULL COMMENT '被绑定的教师ID',
   `class_id` int DEFAULT NULL COMMENT '班级作用域（优先级最高）',
+  `department_id` int DEFAULT NULL COMMENT '系部作用域（次于班级，先于年级）',
   `grade` varchar(20) DEFAULT NULL COMMENT '年级作用域（如：高一/初二，次于班级）',
   `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
@@ -411,10 +445,12 @@ CREATE TABLE `role_assignment` (
   PRIMARY KEY (`id`),
   KEY `teacher_id` (`teacher_id`),
   KEY `class_id` (`class_id`),
+  KEY `department_id` (`department_id`),
   KEY `grade` (`grade`),
   KEY `idx_scope_role` (`role`, `class_id`, `grade`),
   CONSTRAINT `fk_ra_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `teacher` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_ra_class` FOREIGN KEY (`class_id`) REFERENCES `class` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_ra_class` FOREIGN KEY (`class_id`) REFERENCES `class` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ra_department` FOREIGN KEY (`department_id`) REFERENCES `department` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
@@ -518,5 +554,9 @@ INSERT INTO `leave_type_workflow` (`leave_type_id`, `workflow_id`, `condition_ex
 
 -- 扩展teacher表支持行政角色
 ALTER TABLE `teacher` 
-ADD COLUMN `administrative_role` enum('班主任','年级主任','教务主任','校长','普通教师') DEFAULT '普通教师' COMMENT '行政角色',
+ADD COLUMN `administrative_role` enum('班主任','系部主任','年级主任','教务主任','校长','普通教师') DEFAULT '普通教师' COMMENT '行政角色',
 ADD COLUMN `managed_grade` varchar(20) DEFAULT NULL COMMENT '管理的年级（年级主任使用）';
+-- 已存在环境可执行：调整枚举（如已存在需手工迁移）
+-- ALTER TABLE `approval_step` MODIFY COLUMN `approver_role` enum('班主任','系部主任','年级主任','教务主任','校长') NOT NULL;
+-- ALTER TABLE `role_assignment` MODIFY COLUMN `role` enum('班主任','系部主任','年级主任','教务主任','校长') NOT NULL;
+-- ALTER TABLE `teacher` MODIFY COLUMN `administrative_role` enum('班主任','系部主任','年级主任','教务主任','校长','普通教师') DEFAULT '普通教师';
