@@ -552,11 +552,11 @@ INSERT INTO `leave_type_workflow` (`leave_type_id`, `workflow_id`, `condition_ex
 ((SELECT id FROM leave_type_config WHERE type_code = 'maternity'), 4, NULL),
 ((SELECT id FROM leave_type_config WHERE type_code = 'emergency'), 1, NULL);
 
--- 扩展teacher表支持行政角色
-ALTER TABLE `teacher` 
-ADD COLUMN `administrative_role` enum('班主任','系部主任','年级主任','教务主任','校长','普通教师') DEFAULT '普通教师' COMMENT '行政角色',
-ADD COLUMN `managed_grade` varchar(20) DEFAULT NULL COMMENT '管理的年级（年级主任使用）';
--- 已存在环境可执行：调整枚举（如已存在需手工迁移）
--- ALTER TABLE `approval_step` MODIFY COLUMN `approver_role` enum('班主任','系部主任','年级主任','教务主任','校长') NOT NULL;
--- ALTER TABLE `role_assignment` MODIFY COLUMN `role` enum('班主任','系部主任','年级主任','教务主任','校长') NOT NULL;
--- ALTER TABLE `teacher` MODIFY COLUMN `administrative_role` enum('班主任','系部主任','年级主任','教务主任','校长','普通教师') DEFAULT '普通教师';
+-- -- 扩展teacher表支持行政角色
+-- ALTER TABLE `teacher` 
+-- ADD COLUMN `administrative_role` enum('班主任','系部主任','年级主任','教务主任','校长','普通教师') DEFAULT '普通教师' COMMENT '行政角色',
+-- ADD COLUMN `managed_grade` varchar(20) DEFAULT NULL COMMENT '管理的年级（年级主任使用）';
+-- -- 已存在环境可执行：调整枚举（如已存在需手工迁移）
+-- -- ALTER TABLE `approval_step` MODIFY COLUMN `approver_role` enum('班主任','系部主任','年级主任','教务主任','校长') NOT NULL;
+-- -- ALTER TABLE `role_assignment` MODIFY COLUMN `role` enum('班主任','系部主任','年级主任','教务主任','校长') NOT NULL;
+-- -- ALTER TABLE `teacher` MODIFY COLUMN `administrative_role` enum('班主任','系部主任','年级主任','教务主任','校长','普通教师') DEFAULT '普通教师';

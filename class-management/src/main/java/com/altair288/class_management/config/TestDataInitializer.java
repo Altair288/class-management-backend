@@ -90,7 +90,7 @@ public class TestDataInitializer {
             viewGradesPermission.setDescription("查看成绩权限");
             viewGradesPermission = permissionService.createPermission(viewGradesPermission);
             
-            // 创建教师
+            // 创建教师（共10名）
             Teacher teacher = new Teacher();
             teacher.setName("张老师");
             teacher.setTeacherNo("T2024001");
@@ -112,6 +112,55 @@ public class TestDataInitializer {
             teacher3.setEmail("teacher3@example.com");
             teacher3 = teacherService.save(teacher3);
 
+            Teacher teacher4 = new Teacher();
+            teacher4.setName("赵老师");
+            teacher4.setTeacherNo("T2024004");
+            teacher4.setPhone("138033000004");
+            teacher4.setEmail("teacher4@example.com");
+            teacher4 = teacherService.save(teacher4);
+
+            Teacher teacher5 = new Teacher();
+            teacher5.setName("钱老师");
+            teacher5.setTeacherNo("T2024005");
+            teacher5.setPhone("138033000005");
+            teacher5.setEmail("teacher5@example.com");
+            teacher5 = teacherService.save(teacher5);
+
+            Teacher teacher6 = new Teacher();
+            teacher6.setName("孙老师");
+            teacher6.setTeacherNo("T2024006");
+            teacher6.setPhone("138033000006");
+            teacher6.setEmail("teacher6@example.com");
+            teacher6 = teacherService.save(teacher6);
+
+            Teacher teacher7 = new Teacher();
+            teacher7.setName("周老师");
+            teacher7.setTeacherNo("T2024007");
+            teacher7.setPhone("138033000007");
+            teacher7.setEmail("teacher7@example.com");
+            teacher7 = teacherService.save(teacher7);
+
+            Teacher teacher8 = new Teacher();
+            teacher8.setName("吴老师");
+            teacher8.setTeacherNo("T2024008");
+            teacher8.setPhone("138033000008");
+            teacher8.setEmail("teacher8@example.com");
+            teacher8 = teacherService.save(teacher8);
+
+            Teacher teacher9 = new Teacher();
+            teacher9.setName("郑老师");
+            teacher9.setTeacherNo("T2024009");
+            teacher9.setPhone("138033000009");
+            teacher9.setEmail("teacher9@example.com");
+            teacher9 = teacherService.save(teacher9);
+
+            Teacher teacher10 = new Teacher();
+            teacher10.setName("冯老师");
+            teacher10.setTeacherNo("T2024010");
+            teacher10.setPhone("138033000010");
+            teacher10.setEmail("teacher10@example.com");
+            teacher10 = teacherService.save(teacher10);
+
             // 再创建班级，并设置教师
             com.altair288.class_management.model.Class clazz1 = new com.altair288.class_management.model.Class();
             clazz1.setName("21计算机网络1班");
@@ -121,43 +170,43 @@ public class TestDataInitializer {
 
             com.altair288.class_management.model.Class clazz2 = new com.altair288.class_management.model.Class();
             clazz2.setName("21计算机网络2班");
-            clazz2.setTeacher(teacher);
+            clazz2.setTeacher(teacher2);
             clazz2.setGrade("2021");
             clazz2 = classService.save(clazz2);
 
             com.altair288.class_management.model.Class clazz3 = new com.altair288.class_management.model.Class();
             clazz3.setName("21物联网技术1班");
-            clazz3.setTeacher(teacher);
+            clazz3.setTeacher(teacher3);
             clazz3.setGrade("2021");
             clazz3 = classService.save(clazz3);
 
             com.altair288.class_management.model.Class clazz4 = new com.altair288.class_management.model.Class();
             clazz4.setName("21物联网技术2班");
-            clazz4.setTeacher(teacher);
+            clazz4.setTeacher(teacher4);
             clazz4.setGrade("2021");
             clazz4 = classService.save(clazz4);
 
             com.altair288.class_management.model.Class clazz5 = new com.altair288.class_management.model.Class();
             clazz5.setName("22计算机网络1班");
-            clazz5.setTeacher(teacher);
+            clazz5.setTeacher(teacher5);
             clazz5.setGrade("2022");
             clazz5 = classService.save(clazz5);
 
             com.altair288.class_management.model.Class clazz6 = new com.altair288.class_management.model.Class();
             clazz6.setName("22计算机网络2班");
-            clazz6.setTeacher(teacher);
+            clazz6.setTeacher(teacher6);
             clazz6.setGrade("2022");
             clazz6 = classService.save(clazz6);
 
             com.altair288.class_management.model.Class clazz7 = new com.altair288.class_management.model.Class();
             clazz7.setName("22物联网技术1班");
-            clazz7.setTeacher(teacher);
+            clazz7.setTeacher(teacher7);
             clazz7.setGrade("2022");
             clazz7 = classService.save(clazz7);
 
             com.altair288.class_management.model.Class clazz8 = new com.altair288.class_management.model.Class();
             clazz8.setName("22物联网技术2班");
-            clazz8.setTeacher(teacher);
+            clazz8.setTeacher(teacher8);
             clazz8.setGrade("2022");
             clazz8 = classService.save(clazz8);
 
@@ -171,7 +220,7 @@ public class TestDataInitializer {
                 d.setEnabled(true);
                 return departmentRepository.save(d);
             });
-            departmentRepository.findByCode("MECH").orElseGet(() -> {
+            Department deptMech = departmentRepository.findByCode("MECH").orElseGet(() -> {
                 Department d = new Department();
                 d.setName("机电系");
                 d.setCode("MECH");
@@ -179,7 +228,7 @@ public class TestDataInitializer {
                 d.setEnabled(true);
                 return departmentRepository.save(d);
             });
-            departmentRepository.findByCode("FASH").orElseGet(() -> {
+            Department deptFash = departmentRepository.findByCode("FASH").orElseGet(() -> {
                 Department d = new Department();
                 d.setName("服装系");
                 d.setCode("FASH");
@@ -191,12 +240,12 @@ public class TestDataInitializer {
             // 2) 绑定部分班级到信息系（示例；审批解析将优先使用班级→系部）
             clazz1.setDepartment(deptInfo); classService.save(clazz1);
             clazz2.setDepartment(deptInfo); classService.save(clazz2);
-            clazz3.setDepartment(deptInfo); classService.save(clazz3);
-            clazz4.setDepartment(deptInfo); classService.save(clazz4);
+            clazz3.setDepartment(deptMech); classService.save(clazz3);
+            clazz4.setDepartment(deptMech); classService.save(clazz4);
             clazz5.setDepartment(deptInfo); classService.save(clazz5);
             clazz6.setDepartment(deptInfo); classService.save(clazz6);
-            clazz7.setDepartment(deptInfo); classService.save(clazz7);
-            clazz8.setDepartment(deptInfo); classService.save(clazz8);
+            clazz7.setDepartment(deptFash); classService.save(clazz7);
+            clazz8.setDepartment(deptFash); classService.save(clazz8);
 
             // 创建学生并设置班级
             Student student1 = new Student();
@@ -223,29 +272,18 @@ public class TestDataInitializer {
             parent = parentService.save(parent);
 
             // 创建用户并用学号/工号/手机号作为用户名
-            User teacherUser = new User(null);
-            teacherUser.setUsername(teacher.getName());
-            teacherUser.setIdentityNo(teacher.getTeacherNo());
-            teacherUser.setPassword(initialPassword);
-            teacherUser.setUserType(User.UserType.TEACHER);
-            teacherUser.setRelatedId(teacher.getId());
-            teacherUser = userService.registerUser(teacherUser);
-
-            User teacherUser2 = new User(null);
-            teacherUser2.setUsername(teacher2.getName());
-            teacherUser2.setIdentityNo(teacher2.getTeacherNo());
-            teacherUser2.setPassword(initialPassword);
-            teacherUser2.setUserType(User.UserType.TEACHER);
-            teacherUser2.setRelatedId(teacher2.getId());
-            teacherUser2 = userService.registerUser(teacherUser2);
-
-            User teacherUser3 = new User(null);
-            teacherUser3.setUsername(teacher3.getName());
-            teacherUser3.setIdentityNo(teacher3.getTeacherNo());
-            teacherUser3.setPassword(initialPassword);
-            teacherUser3.setUserType(User.UserType.TEACHER);
-            teacherUser3.setRelatedId(teacher3.getId());
-            teacherUser3 = userService.registerUser(teacherUser3);
+            Teacher[] teacherArr = {teacher, teacher2, teacher3, teacher4, teacher5, teacher6, teacher7, teacher8, teacher9, teacher10};
+            java.util.Map<Integer, User> teacherUserMap = new java.util.HashMap<>();
+            for (Teacher t : teacherArr) {
+                User u = new User(null);
+                u.setUsername(t.getName());
+                u.setIdentityNo(t.getTeacherNo());
+                u.setPassword(initialPassword);
+                u.setUserType(User.UserType.TEACHER);
+                u.setRelatedId(t.getId());
+                u = userService.registerUser(u);
+                teacherUserMap.put(t.getId(), u);
+            }
 
             User studentUser1 = new User(null);
             studentUser1.setUsername(student1.getName());
@@ -281,7 +319,10 @@ public class TestDataInitializer {
 
             // 分配角色
             userRoleService.assignRoleToUser(adminUser.getId(), adminRole.getId());
-            userRoleService.assignRoleToUser(teacherUser.getId(), teacherRole.getId());
+            // 为所有教师账号分配教师角色
+            for (User tu : teacherUserMap.values()) {
+                userRoleService.assignRoleToUser(tu.getId(), teacherRole.getId());
+            }
             userRoleService.assignRoleToUser(studentUser.getId(), studentRole.getId());
             userRoleService.assignRoleToUser(parentUser.getId(), parentRole.getId()); // 家长分配家长角色
 
@@ -302,44 +343,99 @@ public class TestDataInitializer {
             // 额外创建两个班级以匹配前端截图风格
             com.altair288.class_management.model.Class cls2024a = new com.altair288.class_management.model.Class();
             cls2024a.setName("计算机2024-1班");
-            cls2024a.setTeacher(teacher);
+            cls2024a.setTeacher(teacher9);
             cls2024a.setGrade("2024");
             cls2024a = classService.save(cls2024a);
 
             com.altair288.class_management.model.Class cls2024b = new com.altair288.class_management.model.Class();
             cls2024b.setName("计算机2024-2班");
-            cls2024b.setTeacher(teacher);
+            cls2024b.setTeacher(teacher10);
             cls2024b.setGrade("2024");
             cls2024b = classService.save(cls2024b);
 
             // 3) 绑定 2024 班级到信息系
             cls2024a.setDepartment(deptInfo); classService.save(cls2024a);
-            cls2024b.setDepartment(deptInfo); classService.save(cls2024b);
+            cls2024b.setDepartment(deptMech); classService.save(cls2024b);
 
-            // 4) 角色指派：
-            // - 系部主任（信息系） -> 李老师（teacher2）
+            // 4) 角色指派（层级）：班主任 -> 系部主任 -> 年级主任 -> 校长
+            java.util.function.BiConsumer<com.altair288.class_management.model.Class, Teacher> assignHomeroom = (c,t) -> {
+                if (roleAssignmentRepository.findByRoleAndClass("班主任", c.getId()).isEmpty()) {
+                    RoleAssignment ra = new RoleAssignment();
+                    ra.setRole("班主任");
+                    ra.setTeacherId(t.getId());
+                    ra.setClassId(c.getId());
+                    ra.setEnabled(true);
+                    roleAssignmentRepository.save(ra);
+                }
+            };
+            assignHomeroom.accept(clazz1, teacher);
+            assignHomeroom.accept(clazz2, teacher2);
+            assignHomeroom.accept(clazz3, teacher3);
+            assignHomeroom.accept(clazz4, teacher4);
+            assignHomeroom.accept(clazz5, teacher5);
+            assignHomeroom.accept(clazz6, teacher6);
+            assignHomeroom.accept(clazz7, teacher7);
+            assignHomeroom.accept(clazz8, teacher8);
+            assignHomeroom.accept(cls2024a, teacher9);
+            assignHomeroom.accept(cls2024b, teacher10);
+
+            // 系部主任：信息系->李老师  机电系->王老师  服装系->赵老师
             if (roleAssignmentRepository.findByRoleAndDepartment("系部主任", deptInfo.getId()).isEmpty()) {
-                RoleAssignment raDept = new RoleAssignment();
-                raDept.setRole("系部主任");
-                raDept.setTeacherId(teacher2.getId());
-                raDept.setDepartmentId(deptInfo.getId());
-                raDept.setEnabled(true);
-                roleAssignmentRepository.save(raDept);
+                RoleAssignment raDeptInfo = new RoleAssignment();
+                raDeptInfo.setRole("系部主任");
+                raDeptInfo.setTeacherId(teacher2.getId());
+                raDeptInfo.setDepartmentId(deptInfo.getId());
+                raDeptInfo.setEnabled(true);
+                roleAssignmentRepository.save(raDeptInfo);
             }
-            // - 年级主任（2024） -> 王老师（teacher3）
+            if (roleAssignmentRepository.findByRoleAndDepartment("系部主任", deptMech.getId()).isEmpty()) {
+                RoleAssignment raDeptMech = new RoleAssignment();
+                raDeptMech.setRole("系部主任");
+                raDeptMech.setTeacherId(teacher3.getId());
+                raDeptMech.setDepartmentId(deptMech.getId());
+                raDeptMech.setEnabled(true);
+                roleAssignmentRepository.save(raDeptMech);
+            }
+            if (roleAssignmentRepository.findByRoleAndDepartment("系部主任", deptFash.getId()).isEmpty()) {
+                RoleAssignment raDeptFash = new RoleAssignment();
+                raDeptFash.setRole("系部主任");
+                raDeptFash.setTeacherId(teacher4.getId());
+                raDeptFash.setDepartmentId(deptFash.getId());
+                raDeptFash.setEnabled(true);
+                roleAssignmentRepository.save(raDeptFash);
+            }
+
+            // 年级主任：2021->钱老师 2022->孙老师 2024->王老师
+            if (roleAssignmentRepository.findByRoleAndGrade("年级主任", "2021").isEmpty()) {
+                RoleAssignment raGrade2021 = new RoleAssignment();
+                raGrade2021.setRole("年级主任");
+                raGrade2021.setTeacherId(teacher5.getId());
+                raGrade2021.setGrade("2021");
+                raGrade2021.setEnabled(true);
+                roleAssignmentRepository.save(raGrade2021);
+            }
+            if (roleAssignmentRepository.findByRoleAndGrade("年级主任", "2022").isEmpty()) {
+                RoleAssignment raGrade2022 = new RoleAssignment();
+                raGrade2022.setRole("年级主任");
+                raGrade2022.setTeacherId(teacher6.getId());
+                raGrade2022.setGrade("2022");
+                raGrade2022.setEnabled(true);
+                roleAssignmentRepository.save(raGrade2022);
+            }
             if (roleAssignmentRepository.findByRoleAndGrade("年级主任", "2024").isEmpty()) {
-                RoleAssignment raGrade = new RoleAssignment();
-                raGrade.setRole("年级主任");
-                raGrade.setTeacherId(teacher3.getId());
-                raGrade.setGrade("2024");
-                raGrade.setEnabled(true);
-                roleAssignmentRepository.save(raGrade);
+                RoleAssignment raGrade2024 = new RoleAssignment();
+                raGrade2024.setRole("年级主任");
+                raGrade2024.setTeacherId(teacher3.getId());
+                raGrade2024.setGrade("2024");
+                raGrade2024.setEnabled(true);
+                roleAssignmentRepository.save(raGrade2024);
             }
-            // - 校长（全局） -> 张老师（teacher，仅示例）
+
+            // 校长（全局） -> 郑老师（teacher9）
             if (roleAssignmentRepository.findGlobalByRole("校长").isEmpty()) {
                 RoleAssignment raGlobal = new RoleAssignment();
                 raGlobal.setRole("校长");
-                raGlobal.setTeacherId(teacher.getId());
+                raGlobal.setTeacherId(teacher9.getId());
                 raGlobal.setEnabled(true);
                 roleAssignmentRepository.save(raGlobal);
             }
