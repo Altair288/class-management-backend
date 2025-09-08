@@ -51,7 +51,15 @@ public class LeaveRequestService {
     @Transactional
     public LeaveRequest submitLeaveRequest(LeaveRequest leaveRequest) {
         // 设置基本信息
-        leaveRequest.setStatus("待审批");
+        // 判断请假类型是否需要审批
+        boolean requiresApproval = true;
+        if (leaveRequest.getLeaveTypeId() != null) {
+            var cfg = leaveTypeConfigRepository.findById(leaveRequest.getLeaveTypeId()).orElse(null);
+            if (cfg != null) {
+                requiresApproval = Boolean.TRUE.equals(cfg.getRequiresApproval());
+            }
+        }
+        leaveRequest.setStatus(requiresApproval ? "待审批" : "已批准");
         leaveRequest.setCreatedAt(new Date());
         leaveRequest.setUpdatedAt(new Date());
         
@@ -69,8 +77,13 @@ public class LeaveRequestService {
         // 更新学生请假余额
         updateStudentLeaveBalance(saved);
         
-        // 基于配置解析流程，创建第一步待审批
-        createFirstApprovalStep(saved);
+        // 若需要审批才创建第一步，否则视为已完成审批
+        if (requiresApproval) {
+            createFirstApprovalStep(saved);
+        } else {
+            saved.setReviewedAt(new Date());
+            saved = leaveRequestRepository.save(saved);
+        }
         
         return saved;
     }
@@ -106,6 +119,10 @@ public class LeaveRequestService {
             if (steps == null || steps.isEmpty()) return;
 
             var first = steps.get(0);
+            // 容错：stepOrder 允许为空时设置为 1
+            if (first.getStepOrder() == null) {
+                first.setStepOrder(1);
+            }
             Integer approverId = resolveApproverId(first.getApproverRole(), classId, departmentId, grade);
             if (approverId == null) return;
 
@@ -191,12 +208,18 @@ public class LeaveRequestService {
         // 更新当前步骤为已批准
         var exist = leaveApprovalRepository.findByLeaveIdAndTeacherId(id, approverId);
         LeaveApproval approval = exist.orElseGet(LeaveApproval::new);
+        boolean isNew = (approval.getId() == null);
         approval.setLeaveId(id);
         approval.setTeacherId(approverId);
         approval.setStatus("已批准");
         approval.setComment(comments);
         approval.setReviewedAt(new Date());
         approval.setUpdatedAt(new Date());
+        if (isNew) {
+            // 若不存在流程信息，赋默认单级审批元数据
+            if (approval.getStepOrder() == null) approval.setStepOrder(1);
+            if (approval.getStepName() == null) approval.setStepName("单级审批");
+        }
         leaveApprovalRepository.save(approval);
 
         // 推进到下一步
@@ -264,13 +287,18 @@ public class LeaveRequestService {
         
     // 更新或创建审批记录
     var exist = leaveApprovalRepository.findByLeaveIdAndTeacherId(id, approverId);
-    LeaveApproval approval = exist.orElseGet(LeaveApproval::new);
+        LeaveApproval approval = exist.orElseGet(LeaveApproval::new);
+        boolean isNew = (approval.getId() == null);
     approval.setLeaveId(id);
     approval.setTeacherId(approverId);
     approval.setStatus("已拒绝");
     approval.setComment(comments);
     approval.setReviewedAt(new Date());
     approval.setUpdatedAt(new Date());
+        if (isNew) {
+            if (approval.getStepOrder() == null) approval.setStepOrder(1);
+            if (approval.getStepName() == null) approval.setStepName("单级审批");
+        }
     leaveApprovalRepository.save(approval);
         
         // 恢复学生请假余额

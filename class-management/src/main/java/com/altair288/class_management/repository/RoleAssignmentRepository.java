@@ -18,4 +18,7 @@ public interface RoleAssignmentRepository extends JpaRepository<RoleAssignment, 
 
     @Query("select r from RoleAssignment r where r.role = :role and r.classId is null and r.departmentId is null and r.grade is null and r.enabled = true")
     Optional<RoleAssignment> findGlobalByRole(@Param("role") String role);
+
+    java.util.List<RoleAssignment> findByTeacherId(Integer teacherId);
+    java.util.List<RoleAssignment> findByTeacherIdIn(java.util.List<Integer> teacherIds);
 }

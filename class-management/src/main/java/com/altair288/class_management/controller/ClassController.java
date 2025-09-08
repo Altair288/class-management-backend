@@ -1,6 +1,7 @@
 package com.altair288.class_management.controller;
 
 import com.altair288.class_management.dto.ClassInfoDTO;
+import com.altair288.class_management.dto.ClassListDTO;
 import com.altair288.class_management.dto.ClassSimpleDTO;
 import com.altair288.class_management.dto.ClassStudentCountDTO;
 import com.altair288.class_management.dto.CreateClassDTO;
@@ -58,6 +59,22 @@ public class ClassController {
         List<ClassSimpleDTO> result = classes.stream()
                 .map(c -> new ClassSimpleDTO(c.getId(), c.getName(), c.getGrade()))
                 .toList();
+        return ResponseEntity.ok(result);
+    }
+
+    // 前端列表：包含系部与班主任教师（避免前端再做额外查询）
+    @GetMapping("/list")
+    public ResponseEntity<List<ClassListDTO>> getClassList() {
+        List<Class> classes = classService.findAll();
+        List<ClassListDTO> result = classes.stream().map(c -> new ClassListDTO(
+                c.getId(),
+                c.getName(),
+                c.getGrade(),
+                c.getDepartment()!=null?c.getDepartment().getId():null,
+                c.getDepartment()!=null?c.getDepartment().getName():null,
+                c.getTeacher()!=null?c.getTeacher().getId():null,
+                c.getTeacher()!=null?c.getTeacher().getName():null
+        )).toList();
         return ResponseEntity.ok(result);
     }
 
