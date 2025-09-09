@@ -10,8 +10,10 @@ public class RoleAssignment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "role", nullable = false)
-    private String role;
+    // 新结构：approval_role_id 外键指向 role (category=APPROVAL)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approval_role_id", nullable = false)
+    private Role approvalRole;
 
     @Column(name = "teacher_id", nullable = false)
     private Integer teacherId;
@@ -36,8 +38,8 @@ public class RoleAssignment {
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
+    public Role getApprovalRole() { return approvalRole; }
+    public void setApprovalRole(Role approvalRole) { this.approvalRole = approvalRole; }
     public Integer getTeacherId() { return teacherId; }
     public void setTeacherId(Integer teacherId) { this.teacherId = teacherId; }
     public Integer getClassId() { return classId; }

@@ -18,8 +18,10 @@ public class ApprovalStep {
     @Column(name = "step_name", nullable = false)
     private String stepName;
 
-    @Column(name = "approver_role", nullable = false)
-    private String approverRole;
+    // 外键列 approver_role_id
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approver_role_id", nullable = false)
+    private Role approverRole;
 
     @Column(name = "auto_approve", nullable = false)
     private Boolean autoApprove = false;
@@ -35,8 +37,8 @@ public class ApprovalStep {
     public void setStepOrder(Integer stepOrder) { this.stepOrder = stepOrder; }
     public String getStepName() { return stepName; }
     public void setStepName(String stepName) { this.stepName = stepName; }
-    public String getApproverRole() { return approverRole; }
-    public void setApproverRole(String approverRole) { this.approverRole = approverRole; }
+    public Role getApproverRole() { return approverRole; }
+    public void setApproverRole(Role approverRole) { this.approverRole = approverRole; }
     public Boolean getAutoApprove() { return autoApprove; }
     public void setAutoApprove(Boolean autoApprove) { this.autoApprove = autoApprove; }
     public Boolean getEnabled() { return enabled; }

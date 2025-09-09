@@ -26,8 +26,10 @@ public class LeaveApproval {
     @Column(name = "step_name")
     private String stepName;
 
-    @Column(name = "approver_role")
-    private String approverRole;
+    // 外键：审批角色（可为空，流程快照）
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approver_role_id")
+    private Role approverRole;
 
     @Column(name = "status")
     private String status;
@@ -127,13 +129,8 @@ public class LeaveApproval {
         this.stepName = stepName;
     }
 
-    public String getApproverRole() {
-        return approverRole;
-    }
-
-    public void setApproverRole(String approverRole) {
-        this.approverRole = approverRole;
-    }
+    public Role getApproverRole() { return approverRole; }
+    public void setApproverRole(Role approverRole) { this.approverRole = approverRole; }
 
     public Date getCreatedAt() {
         return createdAt;

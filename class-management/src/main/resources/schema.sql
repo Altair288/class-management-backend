@@ -1,22 +1,38 @@
--- class_management.permission definition
+-- =============================================================
+-- 基础权限与统一角色体系（支持系统角色+审批角色层级）
+-- =============================================================
 
 CREATE TABLE `permission` (
-  `id` int NOT NULL AUTO_INCREMENT COMMENT '权限ID',
-  `permission_name` varchar(100) NOT NULL COMMENT '权限名称',
-  `description` text COMMENT '权限描述',
+  `id` INT NOT NULL AUTO_INCREMENT COMMENT '权限ID',
+  `permission_name` VARCHAR(100) NOT NULL COMMENT '权限名称(唯一代码)',
+  `display_name` VARCHAR(100) NULL COMMENT '显示名称(可选)',
+  `description` TEXT COMMENT '权限描述',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `permission_name` (`permission_name`)
+  UNIQUE KEY `uk_permission_name` (`permission_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- class_management.`role` definition
-
+-- 统一角色表：包含系统登录角色 与 审批流程角色
+-- category: SYSTEM (登录/访问控制) | APPROVAL (审批流程用)
 CREATE TABLE `role` (
-  `id` int NOT NULL AUTO_INCREMENT COMMENT '角色ID',
-  `role_name` enum('学生','教师','家长','管理员') NOT NULL COMMENT '角色名称',
+  `id` INT NOT NULL AUTO_INCREMENT COMMENT '角色ID',
+  `code` VARCHAR(50) NOT NULL COMMENT '唯一代码，例如 STUDENT / HOMEROOM',
+  `display_name` VARCHAR(50) NOT NULL COMMENT '显示名称，例如 学生 / 班主任',
+  `category` ENUM('SYSTEM','APPROVAL') NOT NULL COMMENT '角色类别',
+  `parent_id` INT DEFAULT NULL COMMENT '父角色(用于层级/继承)',
+  `level` INT NOT NULL DEFAULT 1 COMMENT '层级：根=1 逐级递增',
+  `sort_order` INT NOT NULL DEFAULT 0 COMMENT '同层排序',
+  `description` TEXT NULL COMMENT '描述',
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `role_name` (`role_name`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  UNIQUE KEY `uk_role_code` (`code`),
+  KEY `idx_role_category` (`category`),
+  KEY `idx_role_parent` (`parent_id`),
+  CONSTRAINT `fk_role_parent` FOREIGN KEY (`parent_id`) REFERENCES `role`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 -- class_management.teacher definition
@@ -373,44 +389,48 @@ CREATE TABLE `approval_workflow` (
 
 
 CREATE TABLE `approval_step` (
-  `id` int NOT NULL AUTO_INCREMENT COMMENT '步骤ID',
-  `workflow_id` int NOT NULL COMMENT '所属流程ID',
-  `step_order` int NOT NULL COMMENT '步骤顺序（1,2,3...）',
-  `step_name` varchar(50) NOT NULL COMMENT '步骤名称',
-  `approver_role` enum('班主任','系部主任','年级主任','教务主任','校长') NOT NULL COMMENT '审批人角色',
-  `auto_approve` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否自动通过',
-  `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `id` INT NOT NULL AUTO_INCREMENT COMMENT '步骤ID',
+  `workflow_id` INT NOT NULL COMMENT '所属流程ID',
+  `step_order` INT NOT NULL COMMENT '步骤顺序（1,2,3...）',
+  `step_name` VARCHAR(50) NOT NULL COMMENT '步骤名称',
+  `approver_role_id` INT NOT NULL COMMENT '审批角色ID(引用 role)',
+  `auto_approve` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否自动通过',
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
   PRIMARY KEY (`id`),
   KEY `workflow_id` (`workflow_id`),
+  KEY `approver_role_id` (`approver_role_id`),
   UNIQUE KEY `uk_workflow_step` (`workflow_id`, `step_order`),
-  CONSTRAINT `approval_step_ibfk_1` FOREIGN KEY (`workflow_id`) REFERENCES `approval_workflow` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_as_workflow` FOREIGN KEY (`workflow_id`) REFERENCES `approval_workflow` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_as_role` FOREIGN KEY (`approver_role_id`) REFERENCES `role`(`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 -- class_management.leave_approval definition（放在 workflow 与 step 之后，保证外键可用）
 
 CREATE TABLE `leave_approval` (
-  `id` int NOT NULL AUTO_INCREMENT COMMENT '审批记录ID',
-  `leave_id` int NOT NULL COMMENT '请假申请ID',
-  `teacher_id` int NOT NULL COMMENT '审批教师ID',
-  `workflow_id` int DEFAULT NULL COMMENT '所属审批流程ID',
-  `step_order` int NOT NULL DEFAULT 1 COMMENT '审批步骤序号',
-  `step_name` varchar(50) DEFAULT NULL COMMENT '审批步骤名称',
-  `approver_role` varchar(20) DEFAULT NULL COMMENT '审批人角色',
-  `status` enum('待审批','已批准','已拒绝') NOT NULL DEFAULT '待审批' COMMENT '审批结果',
-  `reviewed_at` timestamp NULL DEFAULT NULL COMMENT '审批完成时间',
-  `comment` text COMMENT '审批意见',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `id` INT NOT NULL AUTO_INCREMENT COMMENT '审批记录ID',
+  `leave_id` INT NOT NULL COMMENT '请假申请ID',
+  `teacher_id` INT NOT NULL COMMENT '审批教师ID',
+  `workflow_id` INT DEFAULT NULL COMMENT '所属审批流程ID',
+  `step_order` INT NOT NULL DEFAULT 1 COMMENT '审批步骤序号',
+  `step_name` VARCHAR(50) DEFAULT NULL COMMENT '审批步骤名称',
+  `approver_role_id` INT DEFAULT NULL COMMENT '审批角色ID(冗余快照，可为空)',
+  `status` ENUM('待审批','已批准','已拒绝') NOT NULL DEFAULT '待审批' COMMENT '审批结果',
+  `reviewed_at` TIMESTAMP NULL DEFAULT NULL COMMENT '审批完成时间',
+  `comment` TEXT COMMENT '审批意见',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `leave_id` (`leave_id`),
   KEY `teacher_id` (`teacher_id`),
   KEY `idx_workflow` (`workflow_id`),
   KEY `idx_leave_step` (`leave_id`, `step_order`),
+  KEY `approver_role_id` (`approver_role_id`),
   UNIQUE KEY `uk_leave_step_teacher` (`leave_id`, `step_order`, `teacher_id`),
-  CONSTRAINT `leave_approval_ibfk_1` FOREIGN KEY (`leave_id`) REFERENCES `leave_request` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `leave_approval_ibfk_2` FOREIGN KEY (`teacher_id`) REFERENCES `teacher` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `leave_approval_ibfk_3` FOREIGN KEY (`workflow_id`) REFERENCES `approval_workflow` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_la_leave` FOREIGN KEY (`leave_id`) REFERENCES `leave_request` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_la_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `teacher` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_la_workflow` FOREIGN KEY (`workflow_id`) REFERENCES `approval_workflow` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_la_role` FOREIGN KEY (`approver_role_id`) REFERENCES `role`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `leave_type_workflow` (
@@ -433,21 +453,22 @@ CREATE TABLE `leave_type_workflow` (
 
 -- 审批人绑定：将“审批角色”在不同作用域（班级/年级/校级）绑定到具体教师，无需改代码即可更换审批人
 CREATE TABLE `role_assignment` (
-  `id` int NOT NULL AUTO_INCREMENT COMMENT '记录ID',
-  `role` enum('班主任','系部主任','年级主任','教务主任','校长') NOT NULL COMMENT '审批角色',
-  `teacher_id` int NOT NULL COMMENT '被绑定的教师ID',
-  `class_id` int DEFAULT NULL COMMENT '班级作用域（优先级最高）',
-  `department_id` int DEFAULT NULL COMMENT '系部作用域（次于班级，先于年级）',
-  `grade` varchar(20) DEFAULT NULL COMMENT '年级作用域（如：高一/初二，次于班级）',
-  `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `id` INT NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `approval_role_id` INT NOT NULL COMMENT '审批角色ID(role.category=APPROVAL)',
+  `teacher_id` INT NOT NULL COMMENT '被绑定的教师ID',
+  `class_id` INT DEFAULT NULL COMMENT '班级作用域（优先级最高）',
+  `department_id` INT DEFAULT NULL COMMENT '系部作用域（次于班级，先于年级）',
+  `grade` VARCHAR(20) DEFAULT NULL COMMENT '年级作用域（如：高一/初二）',
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `teacher_id` (`teacher_id`),
   KEY `class_id` (`class_id`),
   KEY `department_id` (`department_id`),
   KEY `grade` (`grade`),
-  KEY `idx_scope_role` (`role`, `class_id`, `grade`),
+  KEY `idx_scope_role` (`approval_role_id`, `class_id`, `grade`),
+  CONSTRAINT `fk_ra_role` FOREIGN KEY (`approval_role_id`) REFERENCES `role`(`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_ra_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `teacher` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_ra_class` FOREIGN KEY (`class_id`) REFERENCES `class` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_ra_department` FOREIGN KEY (`department_id`) REFERENCES `department` (`id`) ON DELETE CASCADE
@@ -485,19 +506,36 @@ CREATE TABLE `operation_log` (
 -- class_management.role_permission definition
 
 CREATE TABLE `role_permission` (
-  `id` int NOT NULL AUTO_INCREMENT COMMENT '记录ID',
-  `role_id` int NOT NULL COMMENT '角色ID',
-  `permission_id` int NOT NULL COMMENT '权限ID',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `granted_by` int DEFAULT NULL COMMENT '授权人ID',
+  `id` INT NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `role_id` INT NOT NULL COMMENT '角色ID',
+  `permission_id` INT NOT NULL COMMENT '权限ID',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `granted_by` INT DEFAULT NULL COMMENT '授权人ID',
   PRIMARY KEY (`id`),
   KEY `role_id` (`role_id`),
   KEY `permission_id` (`permission_id`),
   KEY `granted_by` (`granted_by`),
-  CONSTRAINT `role_permission_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `role_permission_ibfk_2` FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `role_permission_ibfk_3` FOREIGN KEY (`granted_by`) REFERENCES `user` (`id`) ON DELETE SET NULL
+  CONSTRAINT `rp_role_fk` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `rp_perm_fk` FOREIGN KEY (`permission_id`) REFERENCES `permission` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `rp_user_fk` FOREIGN KEY (`granted_by`) REFERENCES `user` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- =============================================
+-- 默认角色数据 (系统角色 + 审批角色层级)
+-- =============================================
+INSERT INTO `role` (`code`,`display_name`,`category`,`level`,`sort_order`,`description`) VALUES
+ ('STUDENT','学生','SYSTEM',1,10,'系统登录学生'),
+ ('TEACHER','教师','SYSTEM',1,20,'系统登录教师'),
+ ('PARENT','家长','SYSTEM',1,30,'系统登录家长'),
+ ('ADMIN','管理员','SYSTEM',1,40,'系统管理员'),
+ ('HOMEROOM','班主任','APPROVAL',1,100,'班级第一层审批'),
+ ('DEPT_HEAD','系部主任','APPROVAL',2,110,'系部层审批'),
+ ('GRADE_HEAD','年级主任','APPROVAL',3,120,'年级层审批'),
+ ('ACADEMIC_DIRECTOR','教务主任','APPROVAL',4,130,'教务层审批'),
+ ('PRINCIPAL','校长','APPROVAL',5,140,'最高审批');
+
+-- 方案 C：不使用 parent_id 表达审批或组织顺序，全部保持 NULL。
+-- 审批顺序仅由 approval_workflow / approval_step 控制；parent_id 保留列以备未来扩展。
 
 -- 插入默认请假类型配置数据
 INSERT INTO `leave_type_config` (`type_code`, `type_name`, `max_days_per_request`, `annual_allowance`, `requires_approval`, `requires_medical_proof`, `advance_days_required`, `color`, `description`) VALUES
@@ -516,47 +554,39 @@ INSERT INTO `file_storage_config` (`bucket_name`, `bucket_purpose`, `max_file_si
 -- 插入审批流程模板
 INSERT INTO `approval_workflow` (`workflow_name`, `workflow_code`, `description`) VALUES
 ('单级审批', 'single_level', '班主任直接审批'),
-('两级审批', 'two_level', '班主任审批后，年级主任审批'),
-('三级审批', 'three_level', '班主任、年级主任、教务主任依次审批'),
-('校长审批', 'principal_approval', '班主任、年级主任、教务主任、校长依次审批');
+('两级审批', 'two_level', '班主任 -> 系部主任'),
+('三级审批', 'three_level', '班主任 -> 系部主任 -> 年级主任'),
+('校长审批', 'principal_approval', '班主任 -> 系部主任 -> 年级主任 -> 校长');
 
 -- 插入审批步骤
 -- 单级审批
-INSERT INTO `approval_step` (`workflow_id`, `step_order`, `step_name`, `approver_role`) VALUES
-(1, 1, '班主任审批', '班主任');
+INSERT INTO `approval_step` (`workflow_id`, `step_order`, `step_name`, `approver_role_id`) VALUES
+(1, 1, '班主任审批', (SELECT id FROM role WHERE code='HOMEROOM'));
 
 -- 两级审批
-INSERT INTO `approval_step` (`workflow_id`, `step_order`, `step_name`, `approver_role`) VALUES
-(2, 1, '班主任审批', '班主任'),
-(2, 2, '年级主任审批', '年级主任');
+INSERT INTO `approval_step` (`workflow_id`, `step_order`, `step_name`, `approver_role_id`) VALUES
+(2, 1, '班主任审批', (SELECT id FROM role WHERE code='HOMEROOM')),
+(2, 2, '系部主任审批', (SELECT id FROM role WHERE code='DEPT_HEAD'));
 
 -- 三级审批
-INSERT INTO `approval_step` (`workflow_id`, `step_order`, `step_name`, `approver_role`) VALUES
-(3, 1, '班主任审批', '班主任'),
-(3, 2, '年级主任审批', '年级主任'),
-(3, 3, '教务主任审批', '教务主任');
+INSERT INTO `approval_step` (`workflow_id`, `step_order`, `step_name`, `approver_role_id`) VALUES
+(3, 1, '班主任审批', (SELECT id FROM role WHERE code='HOMEROOM')),
+(3, 2, '系部主任审批', (SELECT id FROM role WHERE code='DEPT_HEAD')),
+(3, 3, '年级主任审批', (SELECT id FROM role WHERE code='GRADE_HEAD'));
 
 -- 校长审批
-INSERT INTO `approval_step` (`workflow_id`, `step_order`, `step_name`, `approver_role`) VALUES
-(4, 1, '班主任审批', '班主任'),
-(4, 2, '年级主任审批', '年级主任'),
-(4, 3, '教务主任审批', '教务主任'),
-(4, 4, '校长审批', '校长');
+INSERT INTO `approval_step` (`workflow_id`, `step_order`, `step_name`, `approver_role_id`) VALUES
+(4, 1, '班主任审批', (SELECT id FROM role WHERE code='HOMEROOM')),
+(4, 2, '系部主任审批', (SELECT id FROM role WHERE code='DEPT_HEAD')),
+(4, 3, '年级主任审批', (SELECT id FROM role WHERE code='GRADE_HEAD')),
+(4, 4, '校长审批', (SELECT id FROM role WHERE code='PRINCIPAL'));
 
 -- 配置请假类型与审批流程的关联
 INSERT INTO `leave_type_workflow` (`leave_type_id`, `workflow_id`, `condition_expression`) VALUES
--- 默认：直接绑定每个类型一个流程（前端可修改）
 ((SELECT id FROM leave_type_config WHERE type_code = 'annual'), 2, NULL),
 ((SELECT id FROM leave_type_config WHERE type_code = 'sick'), 1, NULL),
 ((SELECT id FROM leave_type_config WHERE type_code = 'personal'), 1, NULL),
 ((SELECT id FROM leave_type_config WHERE type_code = 'maternity'), 4, NULL),
 ((SELECT id FROM leave_type_config WHERE type_code = 'emergency'), 1, NULL);
 
--- -- 扩展teacher表支持行政角色
--- ALTER TABLE `teacher` 
--- ADD COLUMN `administrative_role` enum('班主任','系部主任','年级主任','教务主任','校长','普通教师') DEFAULT '普通教师' COMMENT '行政角色',
--- ADD COLUMN `managed_grade` varchar(20) DEFAULT NULL COMMENT '管理的年级（年级主任使用）';
--- -- 已存在环境可执行：调整枚举（如已存在需手工迁移）
--- -- ALTER TABLE `approval_step` MODIFY COLUMN `approver_role` enum('班主任','系部主任','年级主任','教务主任','校长') NOT NULL;
--- -- ALTER TABLE `role_assignment` MODIFY COLUMN `role` enum('班主任','系部主任','年级主任','教务主任','校长') NOT NULL;
--- -- ALTER TABLE `teacher` MODIFY COLUMN `administrative_role` enum('班主任','系部主任','年级主任','教务主任','校长','普通教师') DEFAULT '普通教师';
+-- 旧的基于 ENUM 的审批角色已被统一角色表替代，上述注释保留说明，不再使用。

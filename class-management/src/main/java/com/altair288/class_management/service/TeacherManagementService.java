@@ -6,10 +6,12 @@ import com.altair288.class_management.dto.UpdateTeacherRolesRequest;
 import com.altair288.class_management.model.Class;
 import com.altair288.class_management.model.Department;
 import com.altair288.class_management.model.RoleAssignment;
+import com.altair288.class_management.model.Role;
 import com.altair288.class_management.model.Teacher;
 import com.altair288.class_management.repository.ClassRepository;
 import com.altair288.class_management.repository.RoleAssignmentRepository;
 import com.altair288.class_management.repository.TeacherRepository;
+import com.altair288.class_management.repository.RoleRepository;
 import com.altair288.class_management.repository.DepartmentRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
@@ -23,15 +25,18 @@ public class TeacherManagementService {
     private final ClassRepository classRepository;
     private final RoleAssignmentRepository roleAssignmentRepository;
     private final DepartmentRepository departmentRepository;
+    private final RoleRepository roleRepository;
 
     public TeacherManagementService(TeacherRepository teacherRepository,
                                     ClassRepository classRepository,
                                     RoleAssignmentRepository roleAssignmentRepository,
-                                    DepartmentRepository departmentRepository) {
+                                    DepartmentRepository departmentRepository,
+                                    RoleRepository roleRepository) {
         this.teacherRepository = teacherRepository;
         this.classRepository = classRepository;
         this.roleAssignmentRepository = roleAssignmentRepository;
         this.departmentRepository = departmentRepository;
+        this.roleRepository = roleRepository;
     }
 
     public List<TeacherManagementDTO> listAll() {
@@ -110,7 +115,8 @@ public class TeacherManagementService {
                     Department d = deptMap.get(r.getDepartmentId());
                     departmentName = d != null ? d.getName() : null;
                 }
-                return new RoleScopeDTO(r.getId(), r.getRole(), r.getClassId(), className, r.getDepartmentId(), departmentName, r.getGrade(), scopeType);
+                String roleDisplay = r.getApprovalRole() != null ? r.getApprovalRole().getDisplayName() : null;
+                return new RoleScopeDTO(r.getId(), roleDisplay, r.getClassId(), className, r.getDepartmentId(), departmentName, r.getGrade(), scopeType);
             }).collect(Collectors.toList());
             dto.setRoles(roleDtos);
 
@@ -178,7 +184,8 @@ public class TeacherManagementService {
         List<RoleAssignment> existing = roleAssignmentRepository.findByTeacherId(teacherId);
         // 删除不在 desired 的
         for (RoleAssignment ra : existing) {
-            String key = ra.getRole() + "|" + n(ra.getClassId()) + "|" + n(ra.getDepartmentId()) + "|" + n(ra.getGrade());
+            String roleCode = ra.getApprovalRole()!=null? ra.getApprovalRole().getCode():"";
+            String key = roleCode + "|" + n(ra.getClassId()) + "|" + n(ra.getDepartmentId()) + "|" + n(ra.getGrade());
             if (!desired.containsKey(key)) {
                 roleAssignmentRepository.deleteById(ra.getId());
             }
@@ -189,10 +196,15 @@ public class TeacherManagementService {
             if (in.getDepartmentId() != null && !departmentRepository.findById(in.getDepartmentId()).isPresent()) {
                 throw new IllegalArgumentException("系部不存在: " + in.getDepartmentId());
             }
-            RoleAssignment match = existing.stream().filter(ra -> ra.getRole().equals(in.getRole()) && Objects.equals(ra.getClassId(), in.getClassId()) && Objects.equals(ra.getDepartmentId(), in.getDepartmentId()) && Objects.equals(ra.getGrade(), in.getGrade())).findFirst().orElse(null);
+            RoleAssignment match = existing.stream().filter(ra -> {
+                String code = ra.getApprovalRole()!=null? ra.getApprovalRole().getCode():null;
+                return Objects.equals(code, in.getRole()) && Objects.equals(ra.getClassId(), in.getClassId()) && Objects.equals(ra.getDepartmentId(), in.getDepartmentId()) && Objects.equals(ra.getGrade(), in.getGrade());
+            }).findFirst().orElse(null);
             if (match == null) {
                 RoleAssignment na = new RoleAssignment();
-                na.setRole(in.getRole());
+        Role roleEntity = roleRepository.findByCode(in.getRole())
+            .orElseThrow(() -> new IllegalArgumentException("角色代码不存在: " + in.getRole()));
+        na.setApprovalRole(roleEntity);
                 na.setTeacherId(teacherId);
                 na.setClassId(in.getClassId());
                 na.setDepartmentId(in.getDepartmentId());

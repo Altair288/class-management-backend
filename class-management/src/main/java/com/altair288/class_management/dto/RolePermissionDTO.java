@@ -3,7 +3,7 @@ package com.altair288.class_management.dto;
 public class RolePermissionDTO {
     private Integer id;
     private Integer roleId;
-    private String roleName;
+    private String roleName; // deprecated: 使用 displayName 或 code
     private Integer permissionId;
     private String permissionName;
     private Integer grantedByUserId;

@@ -62,22 +62,11 @@ public class TestDataInitializer {
     public void init() {
         try {
             final String initialPassword = "Test@123456";
-            // 创建角色
-            Role adminRole = new Role(null);
-            adminRole.setRoleName(Role.RoleName.ADMIN);
-            adminRole = roleService.createRole(adminRole);
-
-            Role teacherRole = new Role(null);
-            teacherRole.setRoleName(Role.RoleName.TEACHER);
-            teacherRole = roleService.createRole(teacherRole);
-
-            Role parentRole = new Role(null);
-            parentRole.setRoleName(Role.RoleName.PARENT);
-            parentRole = roleService.createRole(parentRole);
-
-            Role studentRole = new Role(null);
-            studentRole.setRoleName(Role.RoleName.STUDENT);
-            studentRole = roleService.createRole(studentRole);
+            // 使用 schema.sql 预置的系统角色 (按 code 查询)
+            Role adminRole = roleService.getByCode(Role.Codes.ADMIN);
+            Role teacherRole = roleService.getByCode(Role.Codes.TEACHER);
+            Role parentRole = roleService.getByCode(Role.Codes.PARENT);
+            Role studentRole = roleService.getByCode(Role.Codes.STUDENT);
 
             // 创建权限
             Permission createUserPermission = new Permission(null);
@@ -408,10 +397,12 @@ public class TestDataInitializer {
             cls2024b.setDepartment(deptMech); classService.save(cls2024b);
 
             // 4) 角色指派（层级）：班主任 -> 系部主任 -> 年级主任 -> 校长
+            // 绑定审批角色：HOMEROOM（班主任审批角色）
+            Role homeroomApprovalRole = roleService.getByCode(Role.Codes.HOMEROOM);
             java.util.function.BiConsumer<com.altair288.class_management.model.Class, Teacher> assignHomeroom = (c,t) -> {
-                if (roleAssignmentRepository.findByRoleAndClass("班主任", c.getId()).isEmpty()) {
+                if (roleAssignmentRepository.findByRoleAndClass(Role.Codes.HOMEROOM, c.getId()).isEmpty()) {
                     RoleAssignment ra = new RoleAssignment();
-                    ra.setRole("班主任");
+                    ra.setApprovalRole(homeroomApprovalRole);
                     ra.setTeacherId(t.getId());
                     ra.setClassId(c.getId());
                     ra.setEnabled(true);

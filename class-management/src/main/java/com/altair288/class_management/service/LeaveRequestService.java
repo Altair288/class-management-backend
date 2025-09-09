@@ -123,7 +123,8 @@ public class LeaveRequestService {
             if (first.getStepOrder() == null) {
                 first.setStepOrder(1);
             }
-            Integer approverId = resolveApproverId(first.getApproverRole(), classId, departmentId, grade);
+            String approverRoleCode = first.getApproverRole() != null ? first.getApproverRole().getCode() : null;
+            Integer approverId = resolveApproverId(approverRoleCode, classId, departmentId, grade);
             if (approverId == null) return;
 
             LeaveApproval pending = new LeaveApproval();
@@ -240,7 +241,8 @@ public class LeaveRequestService {
                         departmentId = stu.getClazz().getDepartment().getId();
                     }
                 }
-                Integer approverIdNext = resolveApproverId(next.get().getApproverRole(), classId, departmentId, grade);
+                String nextRoleCode = next.get().getApproverRole() != null ? next.get().getApproverRole().getCode() : null;
+                Integer approverIdNext = resolveApproverId(nextRoleCode, classId, departmentId, grade);
                 if (approverIdNext != null) {
                     LeaveApproval pending = new LeaveApproval();
                     pending.setLeaveId(id);
