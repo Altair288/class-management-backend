@@ -197,6 +197,20 @@ public class TestDataInitializer {
             teacher15.setEmail("teacher15@example.com");
             teacher15 = teacherService.save(teacher15);
 
+            Teacher teacher16 = new Teacher();
+            teacher16.setName("测试老师F");
+            teacher16.setTeacherNo("T2024016");
+            teacher16.setPhone("138033000016");
+            teacher16.setEmail("teacher16@example.com");
+            teacher16 = teacherService.save(teacher16);
+
+            Teacher teacher17 = new Teacher();
+            teacher17.setName("测试老师G");
+            teacher17.setTeacherNo("T2024017");
+            teacher17.setPhone("138033000017");
+            teacher17.setEmail("teacher17@example.com");
+            teacher17 = teacherService.save(teacher17);
+
             // 再创建班级，并设置教师
             com.altair288.class_management.model.Class clazz1 = new com.altair288.class_management.model.Class();
             clazz1.setName("21计算机网络1班");
@@ -308,7 +322,7 @@ public class TestDataInitializer {
             parent = parentService.save(parent);
 
             // 创建用户并用学号/工号/手机号作为用户名
-            Teacher[] teacherArr = {teacher, teacher2, teacher3, teacher4, teacher5, teacher6, teacher7, teacher8, teacher9, teacher10, teacher11, teacher12, teacher13, teacher14, teacher15};
+            Teacher[] teacherArr = {teacher, teacher2, teacher3, teacher4, teacher5, teacher6, teacher7, teacher8, teacher9, teacher10, teacher11, teacher12, teacher13, teacher14, teacher15, teacher16, teacher17};
             java.util.Map<Integer, User> teacherUserMap = new java.util.HashMap<>();
             for (Teacher t : teacherArr) {
                 User u = new User(null);
