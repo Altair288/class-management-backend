@@ -1,6 +1,7 @@
 package com.altair288.class_management.service;
 
 import com.altair288.class_management.dto.RoleScopeDTO;
+import com.altair288.class_management.dto.RoleDTO;
 import com.altair288.class_management.dto.TeacherManagementDTO;
 import com.altair288.class_management.dto.UpdateTeacherRolesRequest;
 import com.altair288.class_management.model.Class;
@@ -42,6 +43,39 @@ public class TeacherManagementService {
     public List<TeacherManagementDTO> listAll() {
         List<Teacher> teachers = teacherRepository.findAll();
         return buildDTOs(teachers);
+    }
+
+    // 返回所有可分配的审批角色（category=APPROVAL）
+    public List<RoleDTO> listAssignableApprovalRoles() {
+        return roleRepository.findByCategoryOrderByLevelAscSortOrderAsc(Role.Category.APPROVAL)
+                .stream().map(RoleDTO::new).toList();
+    }
+
+    // 返回完整层级（系统 + 审批）供前端展示结构
+    public List<RoleDTO> roleHierarchy() {
+        return roleRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "category", "level", "sortOrder"))
+                .stream().map(RoleDTO::new).toList();
+    }
+
+    // 供前端构建作用域选择：全部班级、全部系部、全部年级列表（去重）
+    public ScopesDTO scopes() {
+        var classes = classRepository.findAll();
+        var departments = departmentRepository.findAll();
+        java.util.Set<String> grades = new java.util.LinkedHashSet<>();
+        classes.stream().map(Class::getGrade).filter(g->g!=null && !g.isBlank()).forEach(grades::add);
+        ScopesDTO dto = new ScopesDTO();
+        dto.classes = classes.stream().map(c -> new ScopesDTO.ClassOpt(c.getId(), c.getName(), c.getGrade(), c.getDepartment()!=null? c.getDepartment().getId():null)).toList();
+        dto.departments = departments.stream().map(d -> new ScopesDTO.DepartmentOpt(d.getId(), d.getName(), d.getCode())).toList();
+        dto.grades = new java.util.ArrayList<>(grades);
+        return dto;
+    }
+
+    public static class ScopesDTO {
+        public java.util.List<ClassOpt> classes;
+        public java.util.List<DepartmentOpt> departments;
+        public java.util.List<String> grades;
+        public static class ClassOpt { public Integer id; public String name; public String grade; public Integer departmentId; public ClassOpt(Integer id,String name,String grade,Integer departmentId){this.id=id;this.name=name;this.grade=grade;this.departmentId=departmentId;} }
+        public static class DepartmentOpt { public Integer id; public String name; public String code; public DepartmentOpt(Integer id,String name,String code){this.id=id;this.name=name;this.code=code;} }
     }
 
     public TeacherManagementDTO getOne(Integer id) {
@@ -177,8 +211,13 @@ public class TeacherManagementService {
         // 支持：纯行政教师（无班主任班级）也可直接分配年级主任/系部主任/全局角色
         // 若有重复键，后者覆盖前者
         Map<String, UpdateTeacherRolesRequest.RoleAssignmentInput> desired = new LinkedHashMap<>();
+        // 重复检测集合
+        Set<String> keySet = new HashSet<>();
         for (UpdateTeacherRolesRequest.RoleAssignmentInput r : Optional.ofNullable(req.getRoles()).orElse(List.of())) {
             String key = r.getRole() + "|" + (r.getClassId()==null?"":r.getClassId()) + "|" + (r.getDepartmentId()==null?"":r.getDepartmentId()) + "|" + (r.getGrade()==null?"":r.getGrade());
+            if (!keySet.add(key)) {
+                throw new IllegalArgumentException("重复的角色指派作用域: " + key);
+            }
             desired.put(key, r);
         }
         List<RoleAssignment> existing = roleAssignmentRepository.findByTeacherId(teacherId);
@@ -202,9 +241,12 @@ public class TeacherManagementService {
             }).findFirst().orElse(null);
             if (match == null) {
                 RoleAssignment na = new RoleAssignment();
-        Role roleEntity = roleRepository.findByCode(in.getRole())
-            .orElseThrow(() -> new IllegalArgumentException("角色代码不存在: " + in.getRole()));
-        na.setApprovalRole(roleEntity);
+                Role roleEntity = roleRepository.findByCode(in.getRole())
+                        .orElseThrow(() -> new IllegalArgumentException("角色代码不存在: " + in.getRole()));
+                if (roleEntity.getCategory() != Role.Category.APPROVAL) {
+                    throw new IllegalArgumentException("不可分配非审批类别角色: " + in.getRole());
+                }
+                na.setApprovalRole(roleEntity);
                 na.setTeacherId(teacherId);
                 na.setClassId(in.getClassId());
                 na.setDepartmentId(in.getDepartmentId());
@@ -214,6 +256,9 @@ public class TeacherManagementService {
                 na.setUpdatedAt(new Date());
                 roleAssignmentRepository.save(na);
             } else {
+                if (match.getApprovalRole()==null || match.getApprovalRole().getCategory()!= Role.Category.APPROVAL) {
+                    throw new IllegalStateException("历史数据包含非审批角色指派，请清理: id=" + match.getId());
+                }
                 match.setEnabled(in.getEnabled());
                 match.setUpdatedAt(new Date());
                 roleAssignmentRepository.save(match);
