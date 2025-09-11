@@ -34,7 +34,7 @@ public class CreditsController {
     }
 
     // 列表（支持可选 category 过滤）
-    @GetMapping("/items")
+    @GetMapping("/items") // /items?category=de
     public ResponseEntity<List<CreditItemDTO>> listItems(@RequestParam(required = false) String category) {
         return ResponseEntity.ok(creditItemService.list(category));
     }
