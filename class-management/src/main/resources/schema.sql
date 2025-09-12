@@ -540,7 +540,7 @@ INSERT INTO `role` (`code`,`display_name`,`category`,`level`,`sort_order`,`descr
 -- 插入默认请假类型配置数据
 INSERT INTO `leave_type_config` (`type_code`, `type_name`, `max_days_per_request`, `annual_allowance`, `requires_approval`, `requires_medical_proof`, `advance_days_required`, `color`, `description`) VALUES
 ('annual', '年假', 30, 15, 1, 0, 3, '#1976d2', '每年享有的带薪年假，需提前申请'),
-('sick', '病假', 90, 10, 0, 1, 1, '#388e3c', '因病需要休息，需提供医疗证明'),
+('sick', '病假', 90, 10, 1, 1, 1, '#388e3c', '因病需要休息，需提供医疗证明'),
 ('personal', '事假', 10, 5, 1, 0, 1, '#f57c00', '因个人事务需要请假'),
 ('maternity', '产假', 128, 128, 1, 1, 30, '#e91e63', '女性员工生育期间的带薪假期'),
 ('emergency', '紧急事假', 3, 3, 1, 0, 0, '#f44336', '突发紧急情况的临时请假');

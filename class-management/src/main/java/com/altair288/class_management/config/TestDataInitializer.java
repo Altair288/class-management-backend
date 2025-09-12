@@ -6,14 +6,12 @@ import com.altair288.class_management.dto.CreditItemDTO;
 import com.altair288.class_management.repository.CreditItemRepository;
 import com.altair288.class_management.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import java.util.Date;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import jakarta.annotation.PostConstruct;
-import java.util.Calendar;
 
 @Component
 @Profile("dev") // 只在开发环境中启用
@@ -512,11 +510,17 @@ public class TestDataInitializer {
                 sickLeaveConfig.setMaxDaysPerRequest(90);
                 sickLeaveConfig.setAnnualAllowance(10);
                 sickLeaveConfig.setAdvanceDaysRequired(1);
-                sickLeaveConfig.setRequiresApproval(false);
+                // 统一改为需要审批，便于批量初始化待审批数据
+                sickLeaveConfig.setRequiresApproval(true);
                 sickLeaveConfig.setRequiresMedicalProof(true);
                 sickLeaveConfig.setEnabled(true);
                 sickLeaveConfig.setColor("#388e3c");
                 sickLeaveConfig.setDescription("因病需要休息，需提供医疗证明");
+                sickLeaveConfig = leaveTypeConfigService.saveLeaveType(sickLeaveConfig);
+            }
+            // 若已有配置但此前是无需审批，则修改为需要审批（方便生成待审批数据）
+            if (!Boolean.TRUE.equals(sickLeaveConfig.getRequiresApproval())) {
+                sickLeaveConfig.setRequiresApproval(true);
                 sickLeaveConfig = leaveTypeConfigService.saveLeaveType(sickLeaveConfig);
             }
 
@@ -666,116 +670,41 @@ public class TestDataInitializer {
             // emergencyLeave.setHandoverNotes("已安排同学代课");
             // emergencyLeave = leaveRequestService.submitLeaveRequest(emergencyLeave);
 
-            // ====== 追加：6-8月的 10 条示例请假（2025 年）======
-            // 帮助方法：构造 yyyy-MM-dd 的 Date
-            java.util.function.BiFunction<Integer, int[], Date> makeDate = (year, ymd) -> {
-                Calendar c = Calendar.getInstance();
-                c.set(Calendar.YEAR, year);
-                c.set(Calendar.MONTH, ymd[0] - 1);
-                c.set(Calendar.DAY_OF_MONTH, ymd[1]);
-                c.set(Calendar.HOUR_OF_DAY, 0);
-                c.set(Calendar.MINUTE, 0);
-                c.set(Calendar.SECOND, 0);
-                c.set(Calendar.MILLISECOND, 0);
-                return c.getTime();
-            };
-
-            // 1) 张三 病假 2025-06-03 ~ 2025-06-05 批准
-            LeaveRequest r1 = new LeaveRequest();
-            r1.setStudentId(sZhang3.getId());
-            r1.setLeaveTypeId(sickLeaveConfig.getId());
-            r1.setStartDate(makeDate.apply(2025, new int[]{6,3}));
-            r1.setEndDate(makeDate.apply(2025, new int[]{6,5}));
-            r1.setReason("初始化样例：张三病假");
-            r1 = leaveRequestService.submitLeaveRequest(r1);
-            leaveRequestService.approveLeaveRequest(r1.getId(), teacher.getId(), "示例批准");
-
-            // 2) 李四 事假 2025-06-10 ~ 2025-06-10 待审批
-            LeaveRequest r2 = new LeaveRequest();
-            r2.setStudentId(sLi4.getId());
-            r2.setLeaveTypeId(personalLeaveConfig.getId());
-            r2.setStartDate(makeDate.apply(2025, new int[]{6,10}));
-            r2.setEndDate(makeDate.apply(2025, new int[]{6,10}));
-            r2.setReason("初始化样例：李四事假");
-            r2 = leaveRequestService.submitLeaveRequest(r2);
-
-            // 3) 王五 年假 2025-06-15 ~ 2025-06-18 批准
-            LeaveRequest r3 = new LeaveRequest();
-            r3.setStudentId(sWang5.getId());
-            r3.setLeaveTypeId(annualLeaveConfig.getId());
-            r3.setStartDate(makeDate.apply(2025, new int[]{6,15}));
-            r3.setEndDate(makeDate.apply(2025, new int[]{6,18}));
-            r3.setReason("初始化样例：王五年假");
-            r3 = leaveRequestService.submitLeaveRequest(r3);
-            leaveRequestService.approveLeaveRequest(r3.getId(), teacher.getId(), "示例批准");
-
-            // 4) 赵六 病假 2025-06-20 ~ 2025-06-21 拒绝
-            LeaveRequest r4 = new LeaveRequest();
-            r4.setStudentId(sZhao6.getId());
-            r4.setLeaveTypeId(sickLeaveConfig.getId());
-            r4.setStartDate(makeDate.apply(2025, new int[]{6,20}));
-            r4.setEndDate(makeDate.apply(2025, new int[]{6,21}));
-            r4.setReason("初始化样例：赵六病假");
-            r4 = leaveRequestService.submitLeaveRequest(r4);
-            leaveRequestService.rejectLeaveRequest(r4.getId(), teacher.getId(), "示例拒绝");
-
-            // 5) 张三 事假 2025-07-01 ~ 2025-07-02 批准
-            LeaveRequest r5 = new LeaveRequest();
-            r5.setStudentId(sZhang3.getId());
-            r5.setLeaveTypeId(personalLeaveConfig.getId());
-            r5.setStartDate(makeDate.apply(2025, new int[]{7,1}));
-            r5.setEndDate(makeDate.apply(2025, new int[]{7,2}));
-            r5.setReason("初始化样例：张三事假");
-            r5 = leaveRequestService.submitLeaveRequest(r5);
-            leaveRequestService.approveLeaveRequest(r5.getId(), teacher.getId(), "示例批准");
-
-            // 6) 李四 病假 2025-07-05 ~ 2025-07-07 批准
-            LeaveRequest r6 = new LeaveRequest();
-            r6.setStudentId(sLi4.getId());
-            r6.setLeaveTypeId(sickLeaveConfig.getId());
-            r6.setStartDate(makeDate.apply(2025, new int[]{7,5}));
-            r6.setEndDate(makeDate.apply(2025, new int[]{7,7}));
-            r6.setReason("初始化样例：李四病假");
-            r6 = leaveRequestService.submitLeaveRequest(r6);
-            leaveRequestService.approveLeaveRequest(r6.getId(), teacher.getId(), "示例批准");
-
-            // 7) 王五 事假 2025-07-12 ~ 2025-07-12 待审批
-            LeaveRequest r7 = new LeaveRequest();
-            r7.setStudentId(sWang5.getId());
-            r7.setLeaveTypeId(personalLeaveConfig.getId());
-            r7.setStartDate(makeDate.apply(2025, new int[]{7,12}));
-            r7.setEndDate(makeDate.apply(2025, new int[]{7,12}));
-            r7.setReason("初始化样例：王五事假");
-            r7 = leaveRequestService.submitLeaveRequest(r7);
-
-            // 8) 赵六 年假 2025-08-03 ~ 2025-08-06 批准
-            LeaveRequest r8 = new LeaveRequest();
-            r8.setStudentId(sZhao6.getId());
-            r8.setLeaveTypeId(annualLeaveConfig.getId());
-            r8.setStartDate(makeDate.apply(2025, new int[]{8,3}));
-            r8.setEndDate(makeDate.apply(2025, new int[]{8,6}));
-            r8.setReason("初始化样例：赵六年假");
-            r8 = leaveRequestService.submitLeaveRequest(r8);
-            leaveRequestService.approveLeaveRequest(r8.getId(), teacher.getId(), "示例批准");
-
-            // 9) 张三 病假 2025-08-15 ~ 2025-08-16 待审批
-            LeaveRequest r9 = new LeaveRequest();
-            r9.setStudentId(sZhang3.getId());
-            r9.setLeaveTypeId(sickLeaveConfig.getId());
-            r9.setStartDate(makeDate.apply(2025, new int[]{8,15}));
-            r9.setEndDate(makeDate.apply(2025, new int[]{8,16}));
-            r9.setReason("初始化样例：张三病假(待审批)");
-            r9 = leaveRequestService.submitLeaveRequest(r9);
-
-            // 10) 李四 年假 2025-08-20 ~ 2025-08-25 拒绝
-            LeaveRequest r10 = new LeaveRequest();
-            r10.setStudentId(sLi4.getId());
-            r10.setLeaveTypeId(annualLeaveConfig.getId());
-            r10.setStartDate(makeDate.apply(2025, new int[]{8,20}));
-            r10.setEndDate(makeDate.apply(2025, new int[]{8,25}));
-            r10.setReason("初始化样例：李四年假");
-            r10 = leaveRequestService.submitLeaveRequest(r10);
-            leaveRequestService.rejectLeaveRequest(r10.getId(), teacher.getId(), "示例拒绝");
+            // ====== 批量生成：2025年6~9月 30 条全部“待审批”请假申请 ======
+            // 幂等：若已生成（reason 前缀匹配）则跳过
+            long existingGenerated = leaveRequestService.getAll().stream()
+                    .filter(lr -> lr.getReason() != null && lr.getReason().startsWith("批量初始化待审批-"))
+                    .count();
+            if (existingGenerated < 30) {
+                java.time.LocalDate baseStart = java.time.LocalDate.of(2025, 6, 1);
+                java.time.LocalDate endLimit = java.time.LocalDate.of(2025, 9, 30);
+                Integer[] stuIds = { sZhang3.getId(), sLi4.getId(), sWang5.getId(), sZhao6.getId(), student1.getId(), student.getId() };
+                Integer[] typeIds = { sickLeaveConfig.getId(), personalLeaveConfig.getId(), annualLeaveConfig.getId() };
+                int created = 0;
+                int dayStep = 3; // 每条间隔基准
+                while (created < 30) {
+                    int i = created;
+                    java.time.LocalDate start = baseStart.plusDays((long) i * dayStep % 122); // 6-9月跨度约122天
+                    if (start.isAfter(endLimit)) break; // 防止越界
+                    int span = (i % 3); // 0/1/2 => 1~3天
+                    java.time.LocalDate end = start.plusDays(span);
+                    // 保障结束日期不超过 9 月 30 日
+                    if (end.isAfter(endLimit)) end = endLimit;
+                    LeaveRequest r = new LeaveRequest();
+                    r.setStudentId(stuIds[i % stuIds.length]);
+                    r.setLeaveTypeId(typeIds[i % typeIds.length]);
+                    r.setStartDate(java.util.Date.from(start.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()));
+                    r.setEndDate(java.util.Date.from(end.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()));
+                    r.setReason("批量初始化待审批-" + (i + 1));
+                    r.setEmergencyContact("测试联系人" + (i + 1));
+                    r.setEmergencyPhone("1380000" + String.format("%04d", i + 1));
+                    leaveRequestService.submitLeaveRequest(r); // 由于所有类型均 requiresApproval=true => 状态=待审批
+                    created++;
+                }
+                logger.info("已生成 {} 条批量初始化待审批请假记录", created);
+            } else {
+                logger.info("已存在 {} 条批量初始化待审批请假记录, 跳过生成", existingGenerated);
+            }
 
             logger.info("测试数据初始化完成,请使用用户名和密码登录：\n" +
                     "管理员账号：admin, 密码：" + initialPassword + "\n" +

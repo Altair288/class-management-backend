@@ -63,6 +63,10 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Inte
     @Query("select lr from LeaveRequest lr where lr.status = :status and exists (select 1 from LeaveApproval la where la.leaveId = lr.id and la.teacherId = :teacherId)")
     List<LeaveRequest> findByApproverAndStatus(@Param("teacherId") Integer teacherId, @Param("status") String status);
 
+    // 仅返回该教师当前仍需处理(待审批)的单据
+    @Query("select lr from LeaveRequest lr where exists (select 1 from LeaveApproval la where la.leaveId = lr.id and la.teacherId = :teacherId and la.status = '待审批')")
+    List<LeaveRequest> findPendingByApprover(@Param("teacherId") Integer teacherId);
+
     // 审批时长统计所需的轻量字段投影（仅查询已批准的单据，避免 N+1）
     interface ApprovalDurationProjection {
         Date getCreatedAt();

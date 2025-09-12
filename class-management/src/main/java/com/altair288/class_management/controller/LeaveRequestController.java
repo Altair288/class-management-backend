@@ -34,61 +34,65 @@ public class LeaveRequestController {
 
     // 获取学生的请假申请
     @GetMapping("/student/{studentId}")
-    public ResponseEntity<List<LeaveRequest>> getLeaveRequestsByStudent(@PathVariable Integer studentId) {
-        List<LeaveRequest> requests = leaveRequestService.getLeaveRequestsByStudent(studentId);
-        return ResponseEntity.ok(requests);
+    public ResponseEntity<List<com.altair288.class_management.dto.LeaveRequestListDTO>> getLeaveRequestsByStudent(@PathVariable Integer studentId) {
+        return ResponseEntity.ok(leaveRequestService.getByStudentAsDTO(studentId));
     }
 
     // 获取教师负责的请假申请
     @GetMapping("/teacher/{teacherId}") // 教师用户身份接口
-    public ResponseEntity<List<LeaveRequest>> getLeaveRequestsByTeacher(@PathVariable Integer teacherId) {
-        List<LeaveRequest> requests = leaveRequestService.getLeaveRequestsByTeacher(teacherId);
-        return ResponseEntity.ok(requests);
+    public ResponseEntity<List<com.altair288.class_management.dto.LeaveRequestListDTO>> getLeaveRequestsByTeacher(@PathVariable Integer teacherId) {
+        return ResponseEntity.ok(leaveRequestService.getByTeacherAsDTO(teacherId));
+    }
+
+    // 获取教师当前待处理(待审批)的请假申请（推荐教师端使用）
+    @GetMapping("/teacher/{teacherId}/pending")
+    public ResponseEntity<List<com.altair288.class_management.dto.LeaveRequestListDTO>> getPendingLeaveRequestsByTeacher(@PathVariable Integer teacherId) {
+        return ResponseEntity.ok(leaveRequestService.getPendingByTeacherAsDTO(teacherId));
     }
 
     // 获取所有请假申请
     @GetMapping("/all") // 管理员用户身份接口
-    public ResponseEntity<List<LeaveRequest>> getAllLeaveRequests() {
-        List<LeaveRequest> requests = leaveRequestService.getAll();
-        return ResponseEntity.ok(requests);
+    public ResponseEntity<List<com.altair288.class_management.dto.LeaveRequestListDTO>> getAllLeaveRequests() {
+        return ResponseEntity.ok(leaveRequestService.getAllAsDTO());
     }
 
     // 根据状态获取请假申请
     @GetMapping("/status/{status}")
-    public ResponseEntity<List<LeaveRequest>> getLeaveRequestsByStatus(@PathVariable String status) {
-        List<LeaveRequest> requests = leaveRequestService.getLeaveRequestsByStatus(status);
-        return ResponseEntity.ok(requests);
+    public ResponseEntity<List<com.altair288.class_management.dto.LeaveRequestListDTO>> getLeaveRequestsByStatus(@PathVariable String status) {
+        return ResponseEntity.ok(leaveRequestService.getByStatusAsDTO(status));
     }
 
     // 根据日期范围获取请假申请
     @GetMapping("/date-range")
-    public ResponseEntity<List<LeaveRequest>> getLeaveRequestsByDateRange(
+    public ResponseEntity<List<com.altair288.class_management.dto.LeaveRequestListDTO>> getLeaveRequestsByDateRange(
             @RequestParam Date startDate, 
             @RequestParam Date endDate) {
-        List<LeaveRequest> requests = leaveRequestService.getLeaveRequestsByDateRange(startDate, endDate);
-        return ResponseEntity.ok(requests);
+        return ResponseEntity.ok(leaveRequestService.getByDateRangeAsDTO(startDate, endDate));
     }
 
     // 获取单个请假申请详情
     @GetMapping("/{id}")
-    public ResponseEntity<LeaveRequest> getLeaveRequestById(@PathVariable Integer id) {
-        LeaveRequest request = leaveRequestService.getById(id);
-        if (request != null) {
-            return ResponseEntity.ok(request);
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<com.altair288.class_management.dto.LeaveRequestListDTO> getLeaveRequestById(@PathVariable Integer id) {
+        var dto = leaveRequestService.getOneAsDTO(id);
+        return dto == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(dto);
+    }
+
+    // 更明确的 detail 路径（前端可渐进迁移使用）
+    @GetMapping("/{id}/detail")
+    public ResponseEntity<com.altair288.class_management.dto.LeaveRequestListDTO> getLeaveRequestDetail(@PathVariable Integer id) {
+        var dto = leaveRequestService.getOneAsDTO(id);
+        return dto == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(dto);
     }
 
     // 批准请假申请
     @PostMapping("/{id}/approve")
-    public ResponseEntity<LeaveRequest> approveLeaveRequest(
+    public ResponseEntity<com.altair288.class_management.dto.LeaveRequestListDTO> approveLeaveRequest(
             @PathVariable Integer id,
             @RequestParam Integer approverId,
             @RequestParam(required = false) String comments) {
         try {
-            LeaveRequest approved = leaveRequestService.approveLeaveRequest(id, approverId, comments);
-            return ResponseEntity.ok(approved);
+            var dto = leaveRequestService.approveLeaveRequestAsDTO(id, approverId, comments);
+            return ResponseEntity.ok(dto);
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }
@@ -96,13 +100,13 @@ public class LeaveRequestController {
 
     // 拒绝请假申请
     @PostMapping("/{id}/reject")
-    public ResponseEntity<LeaveRequest> rejectLeaveRequest(
+    public ResponseEntity<com.altair288.class_management.dto.LeaveRequestListDTO> rejectLeaveRequest(
             @PathVariable Integer id,
             @RequestParam Integer approverId,
             @RequestParam(required = false) String comments) {
         try {
-            LeaveRequest rejected = leaveRequestService.rejectLeaveRequest(id, approverId, comments);
-            return ResponseEntity.ok(rejected);
+            var dto = leaveRequestService.rejectLeaveRequestAsDTO(id, approverId, comments);
+            return ResponseEntity.ok(dto);
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }
@@ -180,12 +184,40 @@ public class LeaveRequestController {
     }
 
     @PutMapping("/{id}/approve")
-    public ResponseEntity<LeaveRequest> approveLeave(@PathVariable Integer id, @RequestParam boolean approved) {
+    public ResponseEntity<com.altair288.class_management.dto.LeaveRequestListDTO> approveLeave(@PathVariable Integer id, @RequestParam boolean approved) {
         if (approved) {
             return approveLeaveRequest(id, 1, "系统自动批准");
         } else {
             return rejectLeaveRequest(id, 1, "系统自动拒绝");
         }
+    }
+
+    // 批量批准
+    @PostMapping("/batch/approve")
+    public ResponseEntity<List<com.altair288.class_management.dto.LeaveRequestListDTO>> batchApprove(
+            @RequestParam Integer approverId,
+            @RequestBody BatchActionRequest body) {
+        var list = leaveRequestService.batchApprove(body.getIds(), approverId, body.getComments());
+        return ResponseEntity.ok(list);
+    }
+
+    // 批量拒绝
+    @PostMapping("/batch/reject")
+    public ResponseEntity<List<com.altair288.class_management.dto.LeaveRequestListDTO>> batchReject(
+            @RequestParam Integer approverId,
+            @RequestBody BatchActionRequest body) {
+        var list = leaveRequestService.batchReject(body.getIds(), approverId, body.getComments());
+        return ResponseEntity.ok(list);
+    }
+
+    // 内部静态请求体类
+    public static class BatchActionRequest {
+        private java.util.List<Integer> ids;
+        private String comments;
+        public java.util.List<Integer> getIds() { return ids; }
+        public void setIds(java.util.List<Integer> ids) { this.ids = ids; }
+        public String getComments() { return comments; }
+        public void setComments(String comments) { this.comments = comments; }
     }
 
     // 日历视图：批量返回轻量字段，避免 N+1

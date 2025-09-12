@@ -193,7 +193,117 @@ public class LeaveRequestService {
     }
 
     public List<LeaveRequest> getAll() {
+        // 原方法保留语义需要时可重命名；改为返回实体仍供内部使用
         return leaveRequestRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.altair288.class_management.dto.LeaveRequestListDTO> getAllAsDTO() {
+        List<LeaveRequest> entities = leaveRequestRepository.findAll();
+        return buildDTOs(entities);
+    }
+
+    // 新增：按学生/教师/状态/日期范围/单条 的 DTO 版本，避免直接暴露实体及懒加载代理
+    @Transactional(readOnly = true)
+    public List<com.altair288.class_management.dto.LeaveRequestListDTO> getByStudentAsDTO(Integer studentId) {
+        return buildDTOs(leaveRequestRepository.findByStudentId(studentId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.altair288.class_management.dto.LeaveRequestListDTO> getByTeacherAsDTO(Integer teacherId) {
+        return buildDTOs(leaveRequestRepository.findByApprover(teacherId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.altair288.class_management.dto.LeaveRequestListDTO> getPendingByTeacherAsDTO(Integer teacherId) {
+        return buildDTOs(leaveRequestRepository.findPendingByApprover(teacherId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.altair288.class_management.dto.LeaveRequestListDTO> getByStatusAsDTO(String status) {
+        return buildDTOs(leaveRequestRepository.findByStatus(status));
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.altair288.class_management.dto.LeaveRequestListDTO> getByDateRangeAsDTO(Date startDate, Date endDate) {
+        return buildDTOs(leaveRequestRepository.findByDateRange(startDate, endDate));
+    }
+
+    @Transactional(readOnly = true)
+    public com.altair288.class_management.dto.LeaveRequestListDTO getOneAsDTO(Integer id) {
+        var opt = leaveRequestRepository.findById(id);
+        if (opt.isEmpty()) return null;
+        var list = buildDTOs(java.util.List.of(opt.get()));
+        return list.isEmpty()? null : list.get(0);
+    }
+
+    // 抽取公共 DTO 构造，保证所有 GET 端点一致逻辑
+    @Transactional(readOnly = true)
+    protected List<com.altair288.class_management.dto.LeaveRequestListDTO> buildDTOs(List<LeaveRequest> entities) {
+        if (entities == null || entities.isEmpty()) return java.util.Collections.emptyList();
+        java.util.Set<Integer> ids = new java.util.HashSet<>();
+        for (LeaveRequest lr : entities) if (lr.getId()!=null) ids.add(lr.getId());
+        if (ids.isEmpty()) return java.util.Collections.emptyList();
+        var approvals = leaveApprovalRepository.findByLeaveIds(ids);
+        java.util.Map<Integer, java.util.List<LeaveApproval>> grouped = new java.util.HashMap<>();
+        for (LeaveApproval a: approvals) {
+            java.util.List<LeaveApproval> gl = grouped.get(a.getLeaveId());
+            if (gl == null) { gl = new java.util.ArrayList<>(); grouped.put(a.getLeaveId(), gl); }
+            gl.add(a);
+        }
+        java.util.List<com.altair288.class_management.dto.LeaveRequestListDTO> list = new java.util.ArrayList<>(entities.size());
+        for (LeaveRequest lr : entities) {
+            com.altair288.class_management.dto.LeaveRequestListDTO dto = new com.altair288.class_management.dto.LeaveRequestListDTO();
+            dto.setId(lr.getId());
+            dto.setStudentId(lr.getStudentId());
+            if (lr.getStudent() != null) {
+                try { dto.setStudentName(lr.getStudent().getName()); } catch (Exception ignored) {}
+                try { dto.setStudentNo(lr.getStudent().getStudentNo()); } catch (Exception ignored) {}
+                try { if (lr.getStudent().getClazz()!=null) dto.setClassName(lr.getStudent().getClazz().getName()); } catch (Exception ignored) {}
+            }
+            dto.setLeaveTypeId(lr.getLeaveTypeId());
+            if (lr.getLeaveTypeConfig()!=null) { try { dto.setLeaveTypeName(lr.getLeaveTypeConfig().getTypeName()); } catch (Exception ignored) {} }
+            dto.setStatus(lr.getStatus());
+            dto.setStartDate(lr.getStartDate());
+            dto.setEndDate(lr.getEndDate());
+            dto.setDays(lr.getDays());
+            dto.setCreatedAt(lr.getCreatedAt());
+            dto.setReviewedAt(lr.getReviewedAt());
+            var apprList = grouped.getOrDefault(lr.getId(), java.util.List.of());
+            apprList.sort(java.util.Comparator.comparing(LeaveApproval::getStepOrder, java.util.Comparator.nullsLast(Integer::compareTo)));
+            java.util.List<com.altair288.class_management.dto.LeaveApprovalDTO> apprDTOs = new java.util.ArrayList<>(apprList.size());
+            for (LeaveApproval a : apprList) {
+                com.altair288.class_management.dto.LeaveApprovalDTO ad = new com.altair288.class_management.dto.LeaveApprovalDTO();
+                ad.setId(a.getId());
+                ad.setStepOrder(a.getStepOrder());
+                ad.setStepName(a.getStepName());
+                if (a.getApproverRole()!=null) {
+                    ad.setRoleCode(a.getApproverRole().getCode());
+                    ad.setRoleDisplayName(a.getApproverRole().getDisplayName());
+                }
+                ad.setTeacherId(a.getTeacherId());
+                if (a.getTeacher()!=null) { try { ad.setTeacherName(a.getTeacher().getName()); } catch (Exception ignored) {} }
+                ad.setComment(a.getComment());
+                ad.setStatus(a.getStatus());
+                ad.setReviewedAt(a.getReviewedAt());
+                apprDTOs.add(ad);
+            }
+            dto.setApprovals(apprDTOs);
+            var pending = apprList.stream().filter(a -> "待审批".equals(a.getStatus()))
+                    .min(java.util.Comparator.comparing(LeaveApproval::getStepOrder, java.util.Comparator.nullsLast(Integer::compareTo)));
+            if (pending.isPresent()) {
+                dto.setCurrentStepName(pending.get().getStepName());
+                if (pending.get().getApproverRole()!=null) {
+                    dto.setPendingRoleCode(pending.get().getApproverRole().getCode());
+                    dto.setPendingRoleDisplayName(pending.get().getApproverRole().getDisplayName());
+                }
+            } else if (!apprList.isEmpty()) {
+                var last = apprList.get(apprList.size()-1);
+                dto.setCurrentStepName(last.getStepName());
+            }
+            list.add(dto);
+        }
+        return list;
     }
 
     public LeaveRequest getById(Integer id) {
@@ -205,6 +315,12 @@ public class LeaveRequestService {
         LeaveRequest leaveRequest = getById(id);
         if (leaveRequest == null) {
             throw new RuntimeException("请假申请不存在");
+        }
+        // 权限校验：是否存在一条待审批记录指向该教师
+    var pendingRecords = leaveApprovalRepository.findPendingByLeaveId(id);
+    boolean canApprove = pendingRecords.stream().anyMatch(a -> Objects.equals(a.getTeacherId(), approverId));
+    if (!canApprove && !pendingRecords.isEmpty()) {
+            throw new RuntimeException("当前用户无权审批：不是此步骤指派的审批人");
         }
         // 更新当前步骤为已批准
         var exist = leaveApprovalRepository.findByLeaveIdAndTeacherId(id, approverId);
@@ -283,6 +399,12 @@ public class LeaveRequestService {
         if (leaveRequest == null) {
             throw new RuntimeException("请假申请不存在");
         }
+        // 权限校验：是否存在一条待审批记录指向该教师
+    var pendingRecords = leaveApprovalRepository.findPendingByLeaveId(id);
+    boolean canReject = pendingRecords.stream().anyMatch(a -> Objects.equals(a.getTeacherId(), approverId));
+    if (!canReject && !pendingRecords.isEmpty()) {
+            throw new RuntimeException("当前用户无权审批：不是此步骤指派的审批人");
+        }
         
     leaveRequest.setStatus("已拒绝");
         leaveRequest.setUpdatedAt(new Date());
@@ -307,6 +429,37 @@ public class LeaveRequestService {
         restoreStudentLeaveBalance(leaveRequest);
         
         return leaveRequestRepository.save(leaveRequest);
+    }
+
+    // 返回 DTO 版本（供 Controller 新端点使用）
+    @Transactional
+    public com.altair288.class_management.dto.LeaveRequestListDTO approveLeaveRequestAsDTO(Integer id, Integer approverId, String comments) {
+        var lr = approveLeaveRequest(id, approverId, comments);
+        return getOneAsDTO(lr.getId());
+    }
+
+    @Transactional
+    public com.altair288.class_management.dto.LeaveRequestListDTO rejectLeaveRequestAsDTO(Integer id, Integer approverId, String comments) {
+        var lr = rejectLeaveRequest(id, approverId, comments);
+        return getOneAsDTO(lr.getId());
+    }
+
+    @Transactional
+    public List<com.altair288.class_management.dto.LeaveRequestListDTO> batchApprove(List<Integer> ids, Integer approverId, String comments) {
+        List<com.altair288.class_management.dto.LeaveRequestListDTO> result = new ArrayList<>();
+        for (Integer id : ids) {
+            try { result.add(approveLeaveRequestAsDTO(id, approverId, comments)); } catch (Exception ignored) {}
+        }
+        return result;
+    }
+
+    @Transactional
+    public List<com.altair288.class_management.dto.LeaveRequestListDTO> batchReject(List<Integer> ids, Integer approverId, String comments) {
+        List<com.altair288.class_management.dto.LeaveRequestListDTO> result = new ArrayList<>();
+        for (Integer id : ids) {
+            try { result.add(rejectLeaveRequestAsDTO(id, approverId, comments)); } catch (Exception ignored) {}
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)
