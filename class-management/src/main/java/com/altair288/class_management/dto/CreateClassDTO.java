@@ -4,6 +4,7 @@ public class CreateClassDTO {
     private String name;
     private String grade;
     private Integer teacherId;
+    private Integer departmentId;
 
     public String getName() {
         return name;
@@ -28,4 +29,6 @@ public class CreateClassDTO {
     public void setTeacherId(Integer teacherId) {
         this.teacherId = teacherId;
     }
+    public Integer getDepartmentId() { return departmentId; }
+    public void setDepartmentId(Integer departmentId) { this.departmentId = departmentId; }
 }

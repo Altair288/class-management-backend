@@ -9,4 +9,9 @@ import java.util.List;
 public interface ApprovalStepRepository extends JpaRepository<ApprovalStep, Integer> {
     @Query("select s from ApprovalStep s where s.workflowId = :workflowId and s.enabled = true order by s.stepOrder asc")
     List<ApprovalStep> findEnabledStepsByWorkflow(@Param("workflowId") Integer workflowId);
+
+    List<ApprovalStep> findByWorkflowIdOrderByStepOrderAsc(Integer workflowId);
+
+    @Query("select max(s.stepOrder) from ApprovalStep s where s.workflowId = :workflowId")
+    Integer findMaxOrder(@Param("workflowId") Integer workflowId);
 }

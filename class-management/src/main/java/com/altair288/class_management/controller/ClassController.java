@@ -9,10 +9,12 @@ import com.altair288.class_management.dto.StudentDTO;
 import com.altair288.class_management.dto.AddStudentDTO;
 import com.altair288.class_management.model.Class;
 import com.altair288.class_management.model.Student;
+import com.altair288.class_management.model.Department;
 import com.altair288.class_management.model.Teacher;
 import com.altair288.class_management.service.ClassService;
 import com.altair288.class_management.service.StudentService;
 import com.altair288.class_management.service.TeacherService;
+import com.altair288.class_management.repository.DepartmentRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,11 +29,13 @@ public class ClassController {
     private final ClassService classService;
     private final StudentService studentService;
     private final TeacherService teacherService;
+    private final DepartmentRepository departmentRepository;
 
-    public ClassController(ClassService classService, StudentService studentService, TeacherService teacherService) {
+    public ClassController(ClassService classService, StudentService studentService, TeacherService teacherService, DepartmentRepository departmentRepository) {
         this.classService = classService;
         this.studentService = studentService;
         this.teacherService = teacherService;
+        this.departmentRepository = departmentRepository;
     }
 
     // 查询所有班级详细信息
@@ -103,12 +107,41 @@ public class ClassController {
         if (dto.getGrade() == null || dto.getGrade().isBlank()) {
             return ResponseEntity.badRequest().body("年级不能为空");
         }
-        Class clazz = new Class();
+        if (dto.getDepartmentId() == null) {
+            return ResponseEntity.badRequest().body("系部不能为空");
+        }
+        // 验证系部是否存在
+        Department dept = departmentRepository.findById(dto.getDepartmentId()).orElse(null);
+        if (dept == null) return ResponseEntity.badRequest().body("系部不存在: " + dto.getDepartmentId());
+    Class clazz = new Class();
         clazz.setName(dto.getName());
         clazz.setGrade(dto.getGrade());
         if (dto.getTeacherId() != null) {
             Teacher teacher = teacherService.getById(dto.getTeacherId());
+            if (teacher == null) return ResponseEntity.badRequest().body("教师不存在: " + dto.getTeacherId());
             clazz.setTeacher(teacher);
+        }
+        clazz.setDepartment(dept);
+        classService.save(clazz);
+        return ResponseEntity.ok().build();
+    }
+
+    // 更新班级（名称/年级/系部/班主任）
+    @PutMapping("/{classId}")
+    public ResponseEntity<?> updateClass(@PathVariable Integer classId, @RequestBody CreateClassDTO dto) {
+        Class clazz = classService.getById(classId);
+        if (clazz == null) return ResponseEntity.badRequest().body("班级不存在: " + classId);
+        if (dto.getName() != null && !dto.getName().isBlank()) clazz.setName(dto.getName());
+        if (dto.getGrade() != null && !dto.getGrade().isBlank()) clazz.setGrade(dto.getGrade());
+        if (dto.getTeacherId() != null) {
+            Teacher teacher = teacherService.getById(dto.getTeacherId());
+            if (teacher == null) return ResponseEntity.badRequest().body("教师不存在: " + dto.getTeacherId());
+            clazz.setTeacher(teacher);
+        }
+        if (dto.getDepartmentId() != null) {
+            Department dept = departmentRepository.findById(dto.getDepartmentId()).orElse(null);
+            if (dept == null) return ResponseEntity.badRequest().body("系部不存在: " + dto.getDepartmentId());
+            clazz.setDepartment(dept);
         }
         classService.save(clazz);
         return ResponseEntity.ok().build();

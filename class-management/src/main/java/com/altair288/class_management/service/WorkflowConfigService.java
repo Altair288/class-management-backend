@@ -2,6 +2,8 @@ package com.altair288.class_management.service;
 
 import com.altair288.class_management.model.*;
 import com.altair288.class_management.repository.*;
+import com.altair288.class_management.dto.ApprovalStepRequest;
+import com.altair288.class_management.dto.ApprovalStepDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +18,7 @@ public class WorkflowConfigService {
     @Autowired private ApprovalStepRepository stepRepo;
     @Autowired private LeaveTypeWorkflowRepository typeMapRepo;
     @Autowired private RoleAssignmentRepository roleAssignmentRepo;
+    @Autowired private RoleRepository roleRepository;
 
     // Workflows
     public List<ApprovalWorkflow> listWorkflows() { return workflowRepo.findAll(); }
@@ -36,14 +39,49 @@ public class WorkflowConfigService {
         return stepRepo.findEnabledStepsByWorkflow(workflowId);
     }
 
-    public ApprovalStep addStep(Integer workflowId, ApprovalStep s) {
+    public ApprovalStepDTO addStep(Integer workflowId, ApprovalStepRequest req) {
+        // workflow 校验
+        if (workflowRepo.findById(workflowId).isEmpty()) throw new IllegalArgumentException("工作流不存在: " + workflowId);
+        if (req.getStepName()==null || req.getStepName().isBlank()) throw new IllegalArgumentException("stepName 不能为空");
+        if (req.getRoleCode()==null || req.getRoleCode().isBlank()) throw new IllegalArgumentException("roleCode 不能为空");
+        Role role = resolveApprovalRole(req.getRoleCode());
+        Integer desiredOrder = req.getStepOrder();
+        if (desiredOrder == null) {
+            Integer max = stepRepo.findMaxOrder(workflowId);
+            desiredOrder = (max==null?0:max) + 1;
+        } else {
+            final Integer finalOrder = desiredOrder;
+            boolean conflict = stepRepo.findByWorkflowIdOrderByStepOrderAsc(workflowId).stream()
+                    .anyMatch(s -> s.getStepOrder().equals(finalOrder));
+            if (conflict) throw new IllegalArgumentException("stepOrder 已存在: " + desiredOrder);
+        }
+        ApprovalStep s = new ApprovalStep();
         s.setWorkflowId(workflowId);
-        return stepRepo.save(s);
+    s.setStepOrder(desiredOrder);
+        s.setStepName(req.getStepName());
+        s.setApproverRole(role);
+        s.setAutoApprove(Boolean.TRUE.equals(req.getAutoApprove()));
+        s.setEnabled(req.getEnabled()==null?Boolean.TRUE:req.getEnabled());
+        return new ApprovalStepDTO(stepRepo.save(s));
     }
 
-    public ApprovalStep updateStep(Integer stepId, ApprovalStep s) {
-        s.setId(stepId);
-        return stepRepo.save(s);
+    public ApprovalStepDTO updateStep(Integer stepId, ApprovalStepRequest req) {
+        ApprovalStep s = stepRepo.findById(stepId).orElseThrow(() -> new IllegalArgumentException("步骤不存在: " + stepId));
+        if (req.getStepName()!=null && !req.getStepName().isBlank()) s.setStepName(req.getStepName());
+        if (req.getRoleCode()!=null && !req.getRoleCode().isBlank()) {
+            Role role = resolveApprovalRole(req.getRoleCode());
+            s.setApproverRole(role);
+        }
+        if (req.getAutoApprove()!=null) s.setAutoApprove(req.getAutoApprove());
+        if (req.getEnabled()!=null) s.setEnabled(req.getEnabled());
+        if (req.getStepOrder()!=null && !req.getStepOrder().equals(s.getStepOrder())) {
+            Integer newOrder = req.getStepOrder();
+            boolean conflict = stepRepo.findByWorkflowIdOrderByStepOrderAsc(s.getWorkflowId()).stream()
+                    .anyMatch(x -> !x.getId().equals(s.getId()) && x.getStepOrder().equals(newOrder));
+            if (conflict) throw new IllegalArgumentException("stepOrder 已存在: " + newOrder);
+            s.setStepOrder(newOrder);
+        }
+        return new ApprovalStepDTO(stepRepo.save(s));
     }
 
     public void deleteStep(Integer stepId) { stepRepo.deleteById(stepId); }
@@ -82,4 +120,16 @@ public class WorkflowConfigService {
     public RoleAssignment updateRoleAssignment(Integer id, RoleAssignment ra) { ra.setId(id); return roleAssignmentRepo.save(ra); }
 
     public void deleteRoleAssignment(Integer id) { roleAssignmentRepo.deleteById(id); }
+
+    private Role resolveApprovalRole(String roleCode) {
+        Role r = roleRepository.findByCode(roleCode)
+                .orElseThrow(() -> new IllegalArgumentException("角色不存在: " + roleCode));
+        if (r.getCategory() != Role.Category.APPROVAL) {
+            throw new IllegalArgumentException("角色不是审批类别: " + roleCode);
+        }
+        if (r.getEnabled() != null && !r.getEnabled()) {
+            throw new IllegalArgumentException("角色已被禁用: " + roleCode);
+        }
+        return r;
+    }
 }

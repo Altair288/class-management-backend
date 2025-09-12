@@ -1,6 +1,8 @@
 package com.altair288.class_management.controller;
 
 import com.altair288.class_management.model.*;
+import com.altair288.class_management.dto.ApprovalStepRequest;
+import com.altair288.class_management.dto.ApprovalStepDTO;
 import com.altair288.class_management.service.WorkflowConfigService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -40,18 +42,20 @@ public class WorkflowConfigController {
 
     // Steps
     @GetMapping("/{workflowId}/steps")
-    public ResponseEntity<List<ApprovalStep>> listSteps(@PathVariable Integer workflowId) {
-        return ResponseEntity.ok(svc.listSteps(workflowId));
+    public ResponseEntity<List<ApprovalStepDTO>> listSteps(@PathVariable Integer workflowId) {
+        return ResponseEntity.ok(
+                svc.listSteps(workflowId).stream().map(ApprovalStepDTO::new).toList()
+        );
     }
 
     @PostMapping("/{workflowId}/steps")
-    public ResponseEntity<ApprovalStep> addStep(@PathVariable Integer workflowId, @RequestBody ApprovalStep s) {
-        return ResponseEntity.ok(svc.addStep(workflowId, s));
+    public ResponseEntity<ApprovalStepDTO> addStep(@PathVariable Integer workflowId, @RequestBody ApprovalStepRequest req) {
+        return ResponseEntity.ok(svc.addStep(workflowId, req));
     }
 
     @PutMapping("/steps/{stepId}")
-    public ResponseEntity<ApprovalStep> updateStep(@PathVariable Integer stepId, @RequestBody ApprovalStep s) {
-        return ResponseEntity.ok(svc.updateStep(stepId, s));
+    public ResponseEntity<ApprovalStepDTO> updateStep(@PathVariable Integer stepId, @RequestBody ApprovalStepRequest req) {
+        return ResponseEntity.ok(svc.updateStep(stepId, req));
     }
 
     @DeleteMapping("/steps/{stepId}")
