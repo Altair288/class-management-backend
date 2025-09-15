@@ -326,6 +326,13 @@ public class LeaveRequestService {
         var exist = leaveApprovalRepository.findByLeaveIdAndTeacherId(id, approverId);
         LeaveApproval approval = exist.orElseGet(LeaveApproval::new);
         boolean isNew = (approval.getId() == null);
+        // 补偿：如果当前对象没有 workflowId / stepOrder，尝试从 pendingRecords 中取（说明是第一次补建）
+        if (approval.getWorkflowId() == null && !pendingRecords.isEmpty()) {
+            approval.setWorkflowId(pendingRecords.get(0).getWorkflowId());
+            approval.setStepOrder(pendingRecords.get(0).getStepOrder());
+            approval.setStepName(pendingRecords.get(0).getStepName());
+            approval.setApproverRole(pendingRecords.get(0).getApproverRole());
+        }
         approval.setLeaveId(id);
         approval.setTeacherId(approverId);
         approval.setStatus("已批准");
@@ -344,36 +351,49 @@ public class LeaveRequestService {
         Integer currentOrder = approval.getStepOrder();
         if (workflowId != null && currentOrder != null) {
             var steps = approvalStepRepository.findEnabledStepsByWorkflow(workflowId);
-            // 找下一步
-            var next = steps.stream().filter(s -> s.getStepOrder() > currentOrder).findFirst();
-            if (next.isPresent()) {
-                // 创建下一步待审批
+            if (steps != null && !steps.isEmpty()) {
+                // 保证排序
+                steps.sort(Comparator.comparing(ApprovalStep::getStepOrder, Comparator.nullsLast(Integer::compareTo)));
+                // 查找下一个“可解析出教师”的步骤（以前只找第一个 > current 的，如果解析不到教师就卡住）
+                ApprovalStep chosenNext = null;
+                Integer chosenTeacherId = null;
                 Integer classId = null; Integer departmentId = null; String grade = null;
                 var stu = leaveRequest.getStudentId() == null ? null : studentRepository.findById(leaveRequest.getStudentId()).orElse(null);
                 if (stu != null && stu.getClazz() != null) {
                     classId = stu.getClazz().getId();
                     grade = stu.getClazz().getGrade();
-                    if (stu.getClazz().getDepartment() != null) {
-                        departmentId = stu.getClazz().getDepartment().getId();
+                    if (stu.getClazz().getDepartment() != null) departmentId = stu.getClazz().getDepartment().getId();
+                }
+                for (ApprovalStep s : steps) {
+                    if (s.getStepOrder() != null && s.getStepOrder() > currentOrder) {
+                        String roleCode = s.getApproverRole() != null ? s.getApproverRole().getCode() : null;
+                        Integer tid = resolveApproverId(roleCode, classId, departmentId, grade);
+                        if (tid != null) {
+                            chosenNext = s; chosenTeacherId = tid; break;
+                        }
                     }
                 }
-                String nextRoleCode = next.get().getApproverRole() != null ? next.get().getApproverRole().getCode() : null;
-                Integer approverIdNext = resolveApproverId(nextRoleCode, classId, departmentId, grade);
-                if (approverIdNext != null) {
+                if (chosenNext != null && chosenTeacherId != null) {
                     LeaveApproval pending = new LeaveApproval();
                     pending.setLeaveId(id);
                     pending.setWorkflowId(workflowId);
-                    pending.setStepOrder(next.get().getStepOrder());
-                    pending.setStepName(next.get().getStepName());
-                    pending.setApproverRole(next.get().getApproverRole());
-                    pending.setTeacherId(approverIdNext);
+                    pending.setStepOrder(chosenNext.getStepOrder());
+                    pending.setStepName(chosenNext.getStepName());
+                    pending.setApproverRole(chosenNext.getApproverRole());
+                    pending.setTeacherId(chosenTeacherId);
                     pending.setStatus("待审批");
                     pending.setCreatedAt(new Date());
                     pending.setUpdatedAt(new Date());
                     leaveApprovalRepository.save(pending);
+                } else {
+                    // 没有更多可指派步骤 => 视为流程结束
+                    leaveRequest.setStatus("已批准");
+                    leaveRequest.setReviewedAt(new Date());
+                    leaveRequest.setUpdatedAt(new Date());
+                    return leaveRequestRepository.save(leaveRequest);
                 }
             } else {
-                // 已是最后一步，结束流程
+                // 没有步骤定义，兼容单级
                 leaveRequest.setStatus("已批准");
                 leaveRequest.setReviewedAt(new Date());
                 leaveRequest.setUpdatedAt(new Date());
@@ -624,12 +644,21 @@ public class LeaveRequestService {
 
         CurrentUserLeaveInfoDTO dto = new CurrentUserLeaveInfoDTO();
         dto.setUserId(user.getId());
-        String userTypeCn = switch (user.getUserType()) {
-            case STUDENT -> "学生";
-            case TEACHER -> "教师";
-            case PARENT -> "家长";
-            case ADMIN -> "管理员";
-        };
+        // 使用 if-else 而不是 switch enum, 避免生成合成内部类 (如 LeaveRequestService$1) 引发在
+        // 不一致部署 / 旧类残留 时出现 NoClassDefFoundError。
+        String userTypeCn;
+        User.UserType ut = user.getUserType();
+        if (ut == User.UserType.STUDENT) {
+            userTypeCn = "学生";
+        } else if (ut == User.UserType.TEACHER) {
+            userTypeCn = "教师";
+        } else if (ut == User.UserType.PARENT) {
+            userTypeCn = "家长";
+        } else if (ut == User.UserType.ADMIN) {
+            userTypeCn = "管理员";
+        } else {
+            userTypeCn = "未知";
+        }
         dto.setUserType(userTypeCn);
 
 
