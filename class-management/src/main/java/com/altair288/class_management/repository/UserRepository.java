@@ -17,4 +17,8 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     // 新增：用户名或学号任意一个匹配即可
     @Query("SELECT u FROM User u WHERE u.username = :login OR u.identityNo = :login")
     Optional<User> findByUsernameOrIdentityNo(@Param("login") String login);
+
+    // 根据关联实体ID与用户类型查询（用于从教师/学生找到其登录用户）
+    @Query("SELECT u FROM User u WHERE u.relatedId = :rid AND u.userType = :ut")
+    Optional<User> findByRelatedIdAndUserType(@Param("rid") Integer relatedId, @Param("ut") User.UserType userType);
 }

@@ -13,6 +13,9 @@ import com.altair288.class_management.dto.LeaveCalendarDTO;
 import com.altair288.class_management.dto.CurrentUserLeaveInfoDTO;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import com.altair288.class_management.MessageCenter.service.NotificationService;
+import com.altair288.class_management.MessageCenter.enums.NotificationType;
+import com.altair288.class_management.MessageCenter.enums.NotificationPriority;
 
 @Service
 public class LeaveRequestService {
@@ -48,6 +51,9 @@ public class LeaveRequestService {
     @Autowired
     private RoleAssignmentRepository roleAssignmentRepository;
 
+    @Autowired
+    private NotificationService notificationService;
+
     @Transactional
     public LeaveRequest submitLeaveRequest(LeaveRequest leaveRequest) {
         // 设置基本信息
@@ -80,9 +86,34 @@ public class LeaveRequestService {
         // 若需要审批才创建第一步，否则视为已完成审批
         if (requiresApproval) {
             createFirstApprovalStep(saved);
+            // 通知：提交请假 -> 第一级审批人
+            try {
+                var firstApprovals = leaveApprovalRepository.findPendingByLeaveId(saved.getId());
+                java.util.List<Integer> approverUsers = new java.util.ArrayList<>();
+                for (LeaveApproval a : firstApprovals) {
+                    if (a.getTeacherId() != null) {
+                        // teacher -> user
+                        var teacherUser = userRepository.findByRelatedIdAndUserType(a.getTeacherId(), User.UserType.TEACHER);
+                        teacherUser.ifPresent(u -> approverUsers.add(u.getId()));
+                    }
+                }
+                if (!approverUsers.isEmpty()) {
+                    notificationService.createNotification(new NotificationService.CreateRequest(
+                            NotificationType.LEAVE_SUBMITTED,
+                            "请假申请提交", "有新的请假申请待审批 (#" + saved.getId() + ")",
+                            NotificationPriority.NORMAL,
+                            "LEAVE_REQUEST", String.valueOf(saved.getId()),
+                            "leave:submitted:" + saved.getId(),
+                            null, null,
+                            approverUsers
+                    ));
+                }
+            } catch (Exception ignored) {}
         } else {
             saved.setReviewedAt(new Date());
             saved = leaveRequestRepository.save(saved);
+            // 通知：自动批准
+            try { notifyLeaveFinal(saved, true); } catch (Exception ignored) {}
         }
         
         return saved;
@@ -385,26 +416,34 @@ public class LeaveRequestService {
                     pending.setCreatedAt(new Date());
                     pending.setUpdatedAt(new Date());
                     leaveApprovalRepository.save(pending);
+                    // 通知：进入下一步
+                    try { notifyNextStep(leaveRequest, pending); } catch (Exception ignored) {}
                 } else {
                     // 没有更多可指派步骤 => 视为流程结束
                     leaveRequest.setStatus("已批准");
                     leaveRequest.setReviewedAt(new Date());
                     leaveRequest.setUpdatedAt(new Date());
-                    return leaveRequestRepository.save(leaveRequest);
+                    LeaveRequest fin = leaveRequestRepository.save(leaveRequest);
+                    try { notifyLeaveFinal(fin, true); } catch (Exception ignored) {}
+                    return fin;
                 }
             } else {
                 // 没有步骤定义，兼容单级
                 leaveRequest.setStatus("已批准");
                 leaveRequest.setReviewedAt(new Date());
                 leaveRequest.setUpdatedAt(new Date());
-                return leaveRequestRepository.save(leaveRequest);
+                LeaveRequest fin = leaveRequestRepository.save(leaveRequest);
+                try { notifyLeaveFinal(fin, true); } catch (Exception ignored) {}
+                return fin;
             }
         } else {
             // 无流程信息，单级审批兼容
             leaveRequest.setStatus("已批准");
             leaveRequest.setReviewedAt(new Date());
             leaveRequest.setUpdatedAt(new Date());
-            return leaveRequestRepository.save(leaveRequest);
+            LeaveRequest fin = leaveRequestRepository.save(leaveRequest);
+            try { notifyLeaveFinal(fin, true); } catch (Exception ignored) {}
+            return fin;
         }
 
         // 还有后续步骤，保持单据为待审批
@@ -447,8 +486,9 @@ public class LeaveRequestService {
         
         // 恢复学生请假余额
         restoreStudentLeaveBalance(leaveRequest);
-        
-        return leaveRequestRepository.save(leaveRequest);
+        LeaveRequest fin = leaveRequestRepository.save(leaveRequest);
+        try { notifyLeaveFinal(fin, false); } catch (Exception ignored) {}
+        return fin;
     }
 
     // 返回 DTO 版本（供 Controller 新端点使用）
@@ -714,5 +754,36 @@ public class LeaveRequestService {
             ));
         }
         return list;
+    }
+    // =============== 通知辅助方法 ==================
+    private void notifyNextStep(LeaveRequest leaveRequest, LeaveApproval pending) {
+        if (pending == null || pending.getTeacherId() == null) return;
+        var teacherUser = userRepository.findByRelatedIdAndUserType(pending.getTeacherId(), User.UserType.TEACHER);
+        if (teacherUser.isEmpty()) return;
+        notificationService.createNotification(new NotificationService.CreateRequest(
+                NotificationType.LEAVE_STEP_ADVANCED,
+                "请假进入下一审批", "请假#" + leaveRequest.getId() + " 进入步骤: " + pending.getStepName(),
+                NotificationPriority.NORMAL,
+                "LEAVE_REQUEST", String.valueOf(leaveRequest.getId()),
+                "leave:step:" + leaveRequest.getId() + ":" + pending.getStepOrder(),
+                null, null,
+                java.util.List.of(teacherUser.get().getId())
+        ));
+    }
+
+    private void notifyLeaveFinal(LeaveRequest leaveRequest, boolean approved) {
+        if (leaveRequest.getStudentId() == null) return;
+        var stuUser = userRepository.findByRelatedIdAndUserType(leaveRequest.getStudentId(), User.UserType.STUDENT);
+        if (stuUser.isEmpty()) return;
+        notificationService.createNotification(new NotificationService.CreateRequest(
+                approved ? NotificationType.LEAVE_APPROVED : NotificationType.LEAVE_REJECTED,
+                approved ? "请假已批准" : "请假已拒绝",
+                (approved ? "您的请假申请已批准 #" : "您的请假申请已被拒绝 #") + leaveRequest.getId(),
+                approved ? NotificationPriority.NORMAL : NotificationPriority.HIGH,
+                "LEAVE_REQUEST", String.valueOf(leaveRequest.getId()),
+                "leave:final:" + leaveRequest.getId() + ":" + (approved ? "A" : "R"),
+                null, null,
+                java.util.List.of(stuUser.get().getId())
+        ));
     }
 }

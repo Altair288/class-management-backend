@@ -590,3 +590,120 @@ INSERT INTO `leave_type_workflow` (`leave_type_id`, `workflow_id`, `condition_ex
 ((SELECT id FROM leave_type_config WHERE type_code = 'emergency'), 1, NULL);
 
 -- 旧的基于 ENUM 的审批角色已被统一角色表替代，上述注释保留说明，不再使用。
+
+-- =============================================================
+-- 通知中心 & 学分预警 DDL (初始版本)
+-- =============================================================
+
+-- 核心通知表：一条业务事件 -> 一条通知内容（可能多接收者）
+CREATE TABLE IF NOT EXISTS `notification` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '通知ID',
+  `type` VARCHAR(50) NOT NULL COMMENT '通知类型，如 LEAVE_SUBMITTED / LEAVE_APPROVED / CREDIT_WARNING',
+  `title` VARCHAR(200) NOT NULL COMMENT '标题（可模板渲染后的成品）',
+  `content` TEXT NOT NULL COMMENT '正文（已渲染，可含占位符展开结果）',
+  `priority` ENUM('LOW','NORMAL','HIGH','CRITICAL') NOT NULL DEFAULT 'NORMAL' COMMENT '优先级',
+  `channels_bitmask` INT NOT NULL DEFAULT 1 COMMENT '渠道位图：1=INBOX, 2=EMAIL, 4=SMS(预留), 8=WEBHOOK(预留)',
+  `dedupe_key` VARCHAR(150) DEFAULT NULL COMMENT '幂等去重键，同类型+对象在窗口内唯一',
+  `business_ref_type` VARCHAR(50) DEFAULT NULL COMMENT '业务引用类型，例如 LEAVE_REQUEST / STUDENT_CREDIT',
+  `business_ref_id` VARCHAR(64) DEFAULT NULL COMMENT '业务引用ID，字符串以兼容多种主键',
+  `template_code` VARCHAR(64) DEFAULT NULL COMMENT '使用的模板代码（可空，表示直接存文本）',
+  `extra_json` JSON DEFAULT NULL COMMENT '扩展数据（上下文、变量快照）',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_type_created` (`type`, `created_at`),
+  KEY `idx_business_ref` (`business_ref_type`, `business_ref_id`),
+  UNIQUE KEY `uk_dedupe_key` (`dedupe_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 通知接收者表：一条通知可推给多个 user
+CREATE TABLE IF NOT EXISTS `notification_recipient` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `notification_id` BIGINT NOT NULL COMMENT '通知ID',
+  `user_id` INT NOT NULL COMMENT '接收用户ID',
+  `inbox_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否投递站内消息（冗余判断结果）',
+  `email_enabled` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否发送邮件（冗余）',
+  `email_sent` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '邮件是否已发送成功',
+  `read_status` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否已读 0未读 1已读',
+  `read_at` TIMESTAMP NULL DEFAULT NULL COMMENT '阅读时间',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_notification` (`notification_id`),
+  KEY `idx_user_unread` (`user_id`, `read_status`),
+  UNIQUE KEY `uk_notification_user` (`notification_id`, `user_id`),
+  CONSTRAINT `fk_nr_notification` FOREIGN KEY (`notification_id`) REFERENCES `notification`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_nr_user` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 用户偏好表：控制特定通知类型/渠道是否启用
+CREATE TABLE IF NOT EXISTS `notification_preference` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '偏好ID',
+  `user_id` INT NOT NULL COMMENT '用户ID',
+  `notification_type` VARCHAR(50) NOT NULL COMMENT '通知类型代码',
+  `channel` VARCHAR(20) NOT NULL COMMENT '渠道：INBOX / EMAIL / SMS / WEBHOOK',
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用该类型在该渠道通知',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_type_channel` (`user_id`,`notification_type`,`channel`),
+  KEY `idx_user_channel` (`user_id`,`channel`),
+  CONSTRAINT `fk_np_user` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 学分预警配置表：控制阈值与重发策略
+CREATE TABLE IF NOT EXISTS `credit_warning_config` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '配置ID',
+  `active` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `threshold_value` DECIMAL(7,2) NOT NULL COMMENT '预警阈值（含等于）',
+  `suspend_threshold_value` DECIMAL(7,2) DEFAULT NULL COMMENT '更严重阈值（可空）',
+  `evaluation_cycle` ENUM('GLOBAL','MONTH','TERM','WEEK') NOT NULL DEFAULT 'GLOBAL' COMMENT '评估周期',
+  `resend_interval_days` INT NOT NULL DEFAULT 14 COMMENT '常规重发间隔(天)',
+  `min_remind_gap_days` INT NOT NULL DEFAULT 3 COMMENT '最小提醒间隔(兜底节流)',
+  `force_resend_interval_days` INT DEFAULT NULL COMMENT '强制重发间隔(未读也发)',
+  `require_previous_read_before_resend` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否要求已读后才重发',
+  `max_resend_count` INT DEFAULT NULL COMMENT '最大重发次数（NULL=无限）',
+  `channels_default` INT NOT NULL DEFAULT 1 COMMENT '默认渠道位图(1=INBOX,2=EMAIL...)',
+  `email_default_enabled` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '默认是否启用邮件',
+  `escalation_enabled` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否开启升级策略',
+  `template_code` VARCHAR(64) DEFAULT NULL COMMENT '消息模板代码',
+  `description` VARCHAR(255) DEFAULT NULL COMMENT '描述',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_active_threshold` (`active`,`threshold_value`),
+  KEY `idx_cycle` (`evaluation_cycle`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 学分预警状态表：记录学生在某周期下的预警进度
+CREATE TABLE IF NOT EXISTS `credit_warning_status` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '状态ID',
+  `student_id` INT NOT NULL COMMENT '学生ID',
+  `config_id` BIGINT NOT NULL COMMENT '关联配置ID',
+  `cycle_key` VARCHAR(32) NOT NULL COMMENT '周期键，如 2025-09 / 2025-T1 / GLOBAL',
+  `unresolved` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否仍处于预警未恢复状态',
+  `last_trigger_time` TIMESTAMP NULL DEFAULT NULL COMMENT '首次或最近触发时间',
+  `last_notified_time` TIMESTAMP NULL DEFAULT NULL COMMENT '最近一次通知发送时间',
+  `last_notification_id` BIGINT DEFAULT NULL COMMENT '最近一次通知ID',
+  `last_notification_read` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '最近一次通知是否已读',
+  `resend_count` INT NOT NULL DEFAULT 0 COMMENT '已重发次数',
+  `skipped_count` INT NOT NULL DEFAULT 0 COMMENT '因策略被跳过次数',
+  `resolved_time` TIMESTAMP NULL DEFAULT NULL COMMENT '恢复时间(学分回到阈值上方)',
+  `force_resend_marker_time` TIMESTAMP NULL DEFAULT NULL COMMENT '上次强制提醒时间',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_student_config_cycle` (`student_id`,`config_id`,`cycle_key`),
+  KEY `idx_student_unresolved` (`student_id`,`unresolved`),
+  KEY `idx_config_cycle` (`config_id`,`cycle_key`),
+  CONSTRAINT `fk_cws_student` FOREIGN KEY (`student_id`) REFERENCES `student`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_cws_config` FOREIGN KEY (`config_id`) REFERENCES `credit_warning_config`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_cws_notification` FOREIGN KEY (`last_notification_id`) REFERENCES `notification`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 示例：可插入一条默认学分预警配置（仅 GLOBAL，阈值 60）
+INSERT INTO `credit_warning_config` (`active`,`threshold_value`,`evaluation_cycle`,`resend_interval_days`,`min_remind_gap_days`,`require_previous_read_before_resend`,`channels_default`,`email_default_enabled`,`template_code`,`description`)
+VALUES (1, 60, 'GLOBAL', 14, 3, 1, 1, 0, 'CREDIT_WARNING_DEFAULT', '默认学分预警配置：低于或等于60触发');
+
+-- =============================================================
+-- 结束：通知中心 & 学分预警 DDL
+-- =============================================================
