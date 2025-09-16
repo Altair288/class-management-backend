@@ -711,7 +711,7 @@ public class TestDataInitializer {
                     "教师账号：T2024001, 密码：" + initialPassword + "\n" +
                     "学生账号：S2024001, 密码：" + initialPassword + "\n" +
                     "家长账号：Telphone Number , 密码：" + initialPassword + "\n" +
-                    "请假管理测试数据已创建，包括4种请假类型和5个示例申请");
+                    "请假管理测试数据已创建，包括5种请假类型和30个示例申请");
         } catch (Exception e) {
             logger.error("初始化测试数据时发生错误: ", e);
         }

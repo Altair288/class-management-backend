@@ -7,6 +7,8 @@ import com.altair288.class_management.MessageCenter.model.Notification;
 import com.altair288.class_management.MessageCenter.model.NotificationPreference;
 import com.altair288.class_management.MessageCenter.model.NotificationRecipient;
 import com.altair288.class_management.MessageCenter.repository.NotificationPreferenceRepository;
+import com.altair288.class_management.MessageCenter.repository.NotificationTemplateRepository;
+import com.altair288.class_management.MessageCenter.model.NotificationTemplate;
 import com.altair288.class_management.MessageCenter.repository.NotificationRecipientRepository;
 import com.altair288.class_management.MessageCenter.repository.NotificationRepository;
 import jakarta.transaction.Transactional;
@@ -22,13 +24,19 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final NotificationRecipientRepository recipientRepository;
     private final NotificationPreferenceRepository preferenceRepository;
+    private final NotificationTemplateRepository templateRepository;
+    private final TemplateRenderService templateRenderService;
 
     public NotificationService(NotificationRepository notificationRepository,
                                NotificationRecipientRepository recipientRepository,
-                               NotificationPreferenceRepository preferenceRepository) {
+                               NotificationPreferenceRepository preferenceRepository,
+                               NotificationTemplateRepository templateRepository,
+                               TemplateRenderService templateRenderService) {
         this.notificationRepository = notificationRepository;
         this.recipientRepository = recipientRepository;
         this.preferenceRepository = preferenceRepository;
+        this.templateRepository = templateRepository;
+        this.templateRenderService = templateRenderService;
     }
 
     public record CreateRequest(
@@ -43,6 +51,78 @@ public class NotificationService {
             String extraJson,
             Collection<Integer> recipients
     ) {}
+
+    public record TemplateRequest(
+            NotificationType type,
+            String templateCode,
+            Map<String, Object> variables,
+            NotificationPriority priority,
+            String businessRefType,
+            String businessRefId,
+            String dedupeKey,
+            Collection<Integer> recipients
+    ) {}
+
+    @Transactional
+    public Long createFromTemplate(TemplateRequest req) {
+        if (req.type() == null) throw new IllegalArgumentException("type 不能为空");
+        if (req.templateCode() == null || req.templateCode().isBlank()) throw new IllegalArgumentException("templateCode 不能为空");
+        // 幂等
+        if (req.dedupeKey() != null && !req.dedupeKey().isBlank()) {
+            var exist = notificationRepository.findByDedupeKey(req.dedupeKey());
+            if (exist.isPresent()) return exist.get().getId();
+        }
+        // 选择模板（优先精确 channel=null 通用即可）
+        NotificationTemplate tpl = templateRepository.pickActive(req.templateCode(), null).orElse(null);
+        String title;
+        String content;
+        Integer version = null;
+        if (tpl != null) {
+            var rendered = templateRenderService.render(tpl, req.variables()==null? Map.of(): req.variables());
+            title = rendered.title()==null? req.type().name(): rendered.title();
+            content = rendered.content()==null? "": rendered.content();
+            version = tpl.getVersion();
+        } else {
+            // fallback: 直接用 type + variables 做简易内容
+            title = req.type().name();
+            content = req.variables()==null? "" : req.variables().toString();
+        }
+        Notification n = new Notification();
+        n.setType(req.type());
+        n.setTitle(title);
+        n.setContent(content);
+        n.setPriority(req.priority()==null? NotificationPriority.NORMAL: req.priority());
+        n.setChannelsBitmask(1);
+        n.setDedupeKey(req.dedupeKey());
+        n.setBusinessRefType(req.businessRefType());
+        n.setBusinessRefId(req.businessRefId());
+        n.setTemplateCode(req.templateCode());
+        n.setTemplateVersion(version);
+        if (req.variables()!=null && !req.variables().isEmpty()) {
+            try { n.setRenderedVariablesJson(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(req.variables())); } catch (Exception ignored) {}
+        }
+        n = notificationRepository.save(n);
+        if (req.recipients()!=null && !req.recipients().isEmpty()) {
+            List<NotificationPreference> prefs = preferenceRepository.findByUserId(req.recipients().iterator().next());
+            Map<String, List<NotificationPreference>> grouped = prefs.stream()
+                    .collect(Collectors.groupingBy(p -> p.getNotificationType() + "#" + p.getChannel()));
+            List<NotificationRecipient> toSave = new ArrayList<>();
+            for (Integer uid : new LinkedHashSet<>(req.recipients())) {
+                boolean inbox = resolveChannelEnabled(uid, req.type(), NotificationChannel.INBOX, grouped);
+                boolean email = resolveChannelEnabled(uid, req.type(), NotificationChannel.EMAIL, grouped);
+                NotificationRecipient r = new NotificationRecipient();
+                r.setNotification(n);
+                r.setUserId(uid);
+                r.setInboxEnabled(inbox);
+                r.setEmailEnabled(email);
+                r.setEmailSent(false);
+                r.setReadStatus(false);
+                toSave.add(r);
+            }
+            recipientRepository.saveAll(toSave);
+        }
+        return n.getId();
+    }
 
     @Transactional
     public Long createNotification(CreateRequest req) {

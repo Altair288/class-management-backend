@@ -51,6 +51,17 @@ public class Notification {
     @Column(name = "template_code", length = 64)
     private String templateCode;
 
+    @Column(name = "template_version")
+    private Integer templateVersion;
+
+    @Lob
+    @Column(name = "rendered_variables_json")
+    private String renderedVariablesJson; // 渲染时使用变量的快照
+    public Integer getTemplateVersion() { return templateVersion; }
+    public void setTemplateVersion(Integer templateVersion) { this.templateVersion = templateVersion; }
+    public String getRenderedVariablesJson() { return renderedVariablesJson; }
+    public void setRenderedVariablesJson(String renderedVariablesJson) { this.renderedVariablesJson = renderedVariablesJson; }
+
     @Lob
     @Column(name = "extra_json")
     private String extraJson; // 采用 String 保存 JSON，避免方言 JSON 兼容问题

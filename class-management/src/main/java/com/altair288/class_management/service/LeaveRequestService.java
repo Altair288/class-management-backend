@@ -86,25 +86,26 @@ public class LeaveRequestService {
         // 若需要审批才创建第一步，否则视为已完成审批
         if (requiresApproval) {
             createFirstApprovalStep(saved);
-            // 通知：提交请假 -> 第一级审批人
+            // 通知：提交请假 -> 第一级审批人 （模板）
             try {
                 var firstApprovals = leaveApprovalRepository.findPendingByLeaveId(saved.getId());
                 java.util.List<Integer> approverUsers = new java.util.ArrayList<>();
                 for (LeaveApproval a : firstApprovals) {
                     if (a.getTeacherId() != null) {
-                        // teacher -> user
                         var teacherUser = userRepository.findByRelatedIdAndUserType(a.getTeacherId(), User.UserType.TEACHER);
                         teacherUser.ifPresent(u -> approverUsers.add(u.getId()));
                     }
                 }
                 if (!approverUsers.isEmpty()) {
-                    notificationService.createNotification(new NotificationService.CreateRequest(
+                    Map<String,Object> vars = buildLeaveVariables(saved, null, null);
+                    notificationService.createFromTemplate(new NotificationService.TemplateRequest(
                             NotificationType.LEAVE_SUBMITTED,
-                            "请假申请提交", "有新的请假申请待审批 (#" + saved.getId() + ")",
+                            "LEAVE_SUBMITTED_TO_APPROVER",
+                            vars,
                             NotificationPriority.NORMAL,
-                            "LEAVE_REQUEST", String.valueOf(saved.getId()),
+                            "LEAVE_REQUEST",
+                            String.valueOf(saved.getId()),
                             "leave:submitted:" + saved.getId(),
-                            null, null,
                             approverUsers
                     ));
                 }
@@ -112,8 +113,8 @@ public class LeaveRequestService {
         } else {
             saved.setReviewedAt(new Date());
             saved = leaveRequestRepository.save(saved);
-            // 通知：自动批准
-            try { notifyLeaveFinal(saved, true); } catch (Exception ignored) {}
+            // 通知：自动批准（模板：AUTO）
+            try { notifyLeaveFinal(saved, true, true, null); } catch (Exception ignored) {}
         }
         
         return saved;
@@ -424,7 +425,7 @@ public class LeaveRequestService {
                     leaveRequest.setReviewedAt(new Date());
                     leaveRequest.setUpdatedAt(new Date());
                     LeaveRequest fin = leaveRequestRepository.save(leaveRequest);
-                    try { notifyLeaveFinal(fin, true); } catch (Exception ignored) {}
+                    try { notifyLeaveFinal(fin, true, false, null); } catch (Exception ignored) {}
                     return fin;
                 }
             } else {
@@ -433,7 +434,7 @@ public class LeaveRequestService {
                 leaveRequest.setReviewedAt(new Date());
                 leaveRequest.setUpdatedAt(new Date());
                 LeaveRequest fin = leaveRequestRepository.save(leaveRequest);
-                try { notifyLeaveFinal(fin, true); } catch (Exception ignored) {}
+                try { notifyLeaveFinal(fin, true, false, null); } catch (Exception ignored) {}
                 return fin;
             }
         } else {
@@ -442,7 +443,7 @@ public class LeaveRequestService {
             leaveRequest.setReviewedAt(new Date());
             leaveRequest.setUpdatedAt(new Date());
             LeaveRequest fin = leaveRequestRepository.save(leaveRequest);
-            try { notifyLeaveFinal(fin, true); } catch (Exception ignored) {}
+            try { notifyLeaveFinal(fin, true, false, null); } catch (Exception ignored) {}
             return fin;
         }
 
@@ -487,7 +488,7 @@ public class LeaveRequestService {
         // 恢复学生请假余额
         restoreStudentLeaveBalance(leaveRequest);
         LeaveRequest fin = leaveRequestRepository.save(leaveRequest);
-        try { notifyLeaveFinal(fin, false); } catch (Exception ignored) {}
+    try { notifyLeaveFinal(fin, false, false, comments); } catch (Exception ignored) {}
         return fin;
     }
 
@@ -760,30 +761,80 @@ public class LeaveRequestService {
         if (pending == null || pending.getTeacherId() == null) return;
         var teacherUser = userRepository.findByRelatedIdAndUserType(pending.getTeacherId(), User.UserType.TEACHER);
         if (teacherUser.isEmpty()) return;
-        notificationService.createNotification(new NotificationService.CreateRequest(
+        Map<String,Object> vars = buildLeaveVariables(leaveRequest, pending, null);
+        notificationService.createFromTemplate(new NotificationService.TemplateRequest(
                 NotificationType.LEAVE_STEP_ADVANCED,
-                "请假进入下一审批", "请假#" + leaveRequest.getId() + " 进入步骤: " + pending.getStepName(),
+                "LEAVE_STEP_ADVANCED_TO_APPROVER",
+                vars,
                 NotificationPriority.NORMAL,
-                "LEAVE_REQUEST", String.valueOf(leaveRequest.getId()),
+                "LEAVE_REQUEST",
+                String.valueOf(leaveRequest.getId()),
                 "leave:step:" + leaveRequest.getId() + ":" + pending.getStepOrder(),
-                null, null,
                 java.util.List.of(teacherUser.get().getId())
         ));
     }
 
-    private void notifyLeaveFinal(LeaveRequest leaveRequest, boolean approved) {
+    private void notifyLeaveFinal(LeaveRequest leaveRequest, boolean approved, boolean autoApproved, String rejectReason) {
         if (leaveRequest.getStudentId() == null) return;
         var stuUser = userRepository.findByRelatedIdAndUserType(leaveRequest.getStudentId(), User.UserType.STUDENT);
         if (stuUser.isEmpty()) return;
-        notificationService.createNotification(new NotificationService.CreateRequest(
+        Map<String,Object> vars = buildLeaveVariables(leaveRequest, null, rejectReason);
+        String templateCode;
+        if (approved) {
+            templateCode = autoApproved ? "LEAVE_AUTO_APPROVED_TO_STUDENT" : "LEAVE_APPROVED_TO_STUDENT";
+        } else {
+            templateCode = "LEAVE_REJECTED_TO_STUDENT";
+        }
+        notificationService.createFromTemplate(new NotificationService.TemplateRequest(
                 approved ? NotificationType.LEAVE_APPROVED : NotificationType.LEAVE_REJECTED,
-                approved ? "请假已批准" : "请假已拒绝",
-                (approved ? "您的请假申请已批准 #" : "您的请假申请已被拒绝 #") + leaveRequest.getId(),
+                templateCode,
+                vars,
                 approved ? NotificationPriority.NORMAL : NotificationPriority.HIGH,
-                "LEAVE_REQUEST", String.valueOf(leaveRequest.getId()),
+                "LEAVE_REQUEST",
+                String.valueOf(leaveRequest.getId()),
                 "leave:final:" + leaveRequest.getId() + ":" + (approved ? "A" : "R"),
-                null, null,
                 java.util.List.of(stuUser.get().getId())
         ));
     }
+
+    // 组装模板变量
+    private Map<String,Object> buildLeaveVariables(LeaveRequest lr, LeaveApproval currentPending, String rejectReason) {
+        Map<String,Object> vars = new HashMap<>();
+        if (lr == null) return vars;
+        vars.put("leaveId", lr.getId());
+        vars.put("startDate", formatDate(lr.getStartDate()));
+        vars.put("endDate", formatDate(lr.getEndDate()));
+        if (lr.getDays() != null) vars.put("days", lr.getDays());
+        if (lr.getLeaveTypeId() != null) {
+            var cfg = leaveTypeConfigRepository.findById(lr.getLeaveTypeId()).orElse(null);
+            if (cfg != null) vars.put("leaveTypeName", safe(cfg.getTypeName()));
+        }
+        if (lr.getStudentId() != null) {
+            var stu = studentRepository.findById(lr.getStudentId()).orElse(null);
+            if (stu != null) {
+                vars.put("studentName", safe(stu.getName()));
+                vars.put("studentNo", safe(stu.getStudentNo()));
+                if (stu.getClazz() != null) {
+                    vars.put("className", safe(stu.getClazz().getName()));
+                    if (stu.getClazz().getDepartment() != null) {
+                        vars.put("departmentName", safe(stu.getClazz().getDepartment().getName()));
+                    }
+                }
+            }
+        }
+        if (currentPending != null) {
+            vars.put("currentStepName", safe(currentPending.getStepName()));
+        }
+        if (rejectReason != null) {
+            vars.put("rejectReason", rejectReason);
+        }
+        return vars;
+    }
+
+    private String formatDate(Date d) {
+        if (d == null) return null;
+        java.time.format.DateTimeFormatter f = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        return d.toInstant().atZone(ZoneId.systemDefault()).toLocalDate().format(f);
+    }
+    private String safe(String s) { return s == null? "": s; }
 }

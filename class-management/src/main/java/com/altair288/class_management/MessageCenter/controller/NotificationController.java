@@ -64,4 +64,25 @@ public class NotificationController {
         ));
         return Map.of("id", id);
     }
+
+    // 模板创建接口：前端只传 templateCode + variables + recipients
+    public record CreateFromTemplateDTO(
+            NotificationType type,
+            String templateCode,
+            Map<String,Object> variables,
+            NotificationPriority priority,
+            String businessRefType,
+            String businessRefId,
+            String dedupeKey,
+            List<Integer> recipients
+    ) {}
+
+    @PostMapping("/create-template")
+    public Map<String,Object> createFromTemplate(@RequestBody CreateFromTemplateDTO dto) {
+        Long id = notificationService.createFromTemplate(new NotificationService.TemplateRequest(
+                dto.type(), dto.templateCode(), dto.variables(), dto.priority(),
+                dto.businessRefType(), dto.businessRefId(), dto.dedupeKey(), dto.recipients()
+        ));
+        return Map.of("id", id);
+    }
 }

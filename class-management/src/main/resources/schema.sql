@@ -607,6 +607,8 @@ CREATE TABLE IF NOT EXISTS `notification` (
   `business_ref_type` VARCHAR(50) DEFAULT NULL COMMENT '业务引用类型，例如 LEAVE_REQUEST / STUDENT_CREDIT',
   `business_ref_id` VARCHAR(64) DEFAULT NULL COMMENT '业务引用ID，字符串以兼容多种主键',
   `template_code` VARCHAR(64) DEFAULT NULL COMMENT '使用的模板代码（可空，表示直接存文本）',
+  `template_version` INT DEFAULT NULL COMMENT '模板版本（渲染时快照）',
+  `rendered_variables_json` JSON DEFAULT NULL COMMENT '渲染使用的变量快照 JSON',
   `extra_json` JSON DEFAULT NULL COMMENT '扩展数据（上下文、变量快照）',
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
@@ -706,4 +708,37 @@ VALUES (1, 60, 'GLOBAL', 14, 3, 1, 1, 0, 'CREDIT_WARNING_DEFAULT', '默认学分
 
 -- =============================================================
 -- 结束：通知中心 & 学分预警 DDL
+-- =============================================================
+
+-- =============================================================
+-- 模板系统 DDL
+-- =============================================================
+CREATE TABLE IF NOT EXISTS `notification_template` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '模板ID',
+  `code` VARCHAR(100) NOT NULL COMMENT '模板编码（如 LEAVE_SUBMITTED_TO_APPROVER）',
+  `channel` VARCHAR(20) DEFAULT NULL COMMENT '渠道（NULL=通用, INBOX/EMAIL/SMS/...）',
+  `version` INT NOT NULL DEFAULT 1 COMMENT '版本号（发布递增）',
+  `status` ENUM('DRAFT','ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE' COMMENT '状态',
+  `title_template` TEXT NOT NULL COMMENT '标题模板',
+  `content_template` TEXT NOT NULL COMMENT '内容模板',
+  `remark` VARCHAR(255) DEFAULT NULL COMMENT '备注',
+  `sample_variables` JSON DEFAULT NULL COMMENT '示例变量 JSON',
+  `effective_at` TIMESTAMP NULL DEFAULT NULL COMMENT '生效时间（可空=立即）',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_code_channel_active` (`code`,`channel`,`version`),
+  KEY `idx_code_status` (`code`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 默认请假流程模板（初版）
+INSERT INTO `notification_template` (`code`,`channel`,`version`,`status`,`title_template`,`content_template`,`remark`,`sample_variables`) VALUES
+('LEAVE_SUBMITTED_TO_APPROVER',NULL,1,'ACTIVE','{studentName} 的请假申请待审批','学生：{studentName}（学号 {studentNo}）\n班级：{className}（{departmentName}）\n类型：{leaveTypeName}\n时间：{startDate} ~ {endDate}（共 {days} 天）\n申请编号：#{leaveId}\n请尽快处理。','初始版本',NULL),
+('LEAVE_STEP_ADVANCED_TO_APPROVER',NULL,1,'ACTIVE','请假流程进入 {currentStepName}','申请 #{leaveId} 已进入你的审批：{currentStepName}\n学生：{studentName}（{className}/{departmentName}）\n类型：{leaveTypeName}\n时间：{startDate}~{endDate}','初始版本',NULL),
+('LEAVE_APPROVED_TO_STUDENT',NULL,1,'ACTIVE','请假申请已批准','你的请假申请 #{leaveId} 已批准。\n类型：{leaveTypeName}\n时间：{startDate}~{endDate}','初始版本',NULL),
+('LEAVE_REJECTED_TO_STUDENT',NULL,1,'ACTIVE','请假申请已被拒绝','你的请假申请 #{leaveId} 被拒绝。\n类型：{leaveTypeName}\n时间：{startDate}~{endDate}\n原因：{rejectReason}','初始版本',NULL),
+('LEAVE_AUTO_APPROVED_TO_STUDENT',NULL,1,'ACTIVE','请假自动批准','你的请假申请 #{leaveId} 已自动批准（无需人工审批）。\n类型：{leaveTypeName}\n时间：{startDate}~{endDate}','初始版本',NULL);
+
+-- =============================================================
+-- 结束：模板系统 DDL
 -- =============================================================
