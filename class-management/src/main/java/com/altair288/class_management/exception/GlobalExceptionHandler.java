@@ -8,6 +8,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -62,7 +64,13 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleOther(Exception ex) {
+    public ResponseEntity<?> handleOther(Exception ex, HttpServletRequest request) {
+        // 对于 SSE (text/event-stream) 请求避免再写入 JSON，返回空 204 或简单文本
+        String accept = request.getHeader("Accept");
+        String ct = request.getContentType();
+        if ((accept != null && accept.contains("text/event-stream")) || (ct != null && ct.contains("text/event-stream"))) {
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        }
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "SERVER_ERROR", ex.getMessage());
     }
 }

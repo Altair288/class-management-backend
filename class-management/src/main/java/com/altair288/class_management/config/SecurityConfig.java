@@ -1,20 +1,17 @@
 // src/main/java/com/altair288/class_management/config/SecurityConfig.java
 package com.altair288.class_management.config;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import com.altair288.class_management.service.CustomUserDetailsService;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -41,27 +38,45 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        AuthenticationEntryPoint sseEntryPoint = new SseAuthenticationEntryPoint();
+        SseAccessDeniedHandler sseDeniedHandler = new SseAccessDeniedHandler();
         http
             .csrf(csrf -> csrf.disable())
-            .cors(cors -> {})
+            .cors(Customizer.withDefaults())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/users/register/student").permitAll()
                 .requestMatchers("/api/users/register/parent").permitAll()
                 .requestMatchers("/api/users/register/teacher").permitAll()
                 .requestMatchers("/api/users/login").permitAll()
                 .requestMatchers("/api/users/classes").permitAll()
+                .requestMatchers("/api/notifications/stream").authenticated()
                 .requestMatchers("/api/leave/current-user-info").authenticated()
                 // .requestMatchers("/api/credits/**").permitAll()
                 .anyRequest().authenticated()
             )
-            .formLogin(form -> form
+            .exceptionHandling(eh -> eh
+                .authenticationEntryPoint(sseEntryPoint)
+                .accessDeniedHandler(sseDeniedHandler)
+            )
+                .formLogin(form -> form
                 .loginProcessingUrl("/api/users/login")
                 .successHandler((req, res, auth) -> {
+                    // 强制创建 Session 以便下发 JSESSIONID
+                    req.getSession(true);
+                    if (auth != null) { /* 引用 auth 避免未使用告警 */ }
+                    // 避免再设置任何可能含非 ASCII 的自定义 Header （Tomcat 对 0-255 以外字符直接剥离）。
+                    // 如果确实需要传递显示名：可改为 Base64 / URL 编码再由前端解码，这里直接不传，以确保无 WARNING。
+                    res.setHeader("X-Path", req.getRequestURI());
+                    res.setHeader("X-Login", "OK");
                     res.setStatus(200);
                     res.setContentType("application/json;charset=UTF-8");
-                    res.getWriter().write("{\"message\": \"登录成功\"}");
+                    res.getWriter().write("{\"message\":\"登录成功\"}");
                 })
-                .failureHandler((req, res, e) -> {
+                .failureHandler((req, res, ex) -> {
+                    if (ex != null) {
+                        res.setHeader("X-Error-Type", ex.getClass().getSimpleName());
+                    }
+                    res.setHeader("X-Path", req.getRequestURI());
                     res.setStatus(401);
                     res.setContentType("application/json;charset=UTF-8");
                     res.getWriter().write("{\"message\": \"用户名和密码错误\"}");
@@ -71,6 +86,10 @@ public class SecurityConfig {
             .logout(logout -> logout
                 .logoutUrl("/api/users/logout")
                 .logoutSuccessHandler((req, res, auth) -> {
+                    res.setHeader("X-Path", req.getRequestURI());
+                    if (auth != null) {
+                        res.setHeader("X-User", auth.getName());
+                    }
                     res.setStatus(200);
                     res.setContentType("application/json;charset=UTF-8");
                     res.getWriter().write("{\"message\": \"登出成功\"}");

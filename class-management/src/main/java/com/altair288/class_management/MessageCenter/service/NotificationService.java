@@ -13,6 +13,8 @@ import com.altair288.class_management.MessageCenter.repository.NotificationRecip
 import com.altair288.class_management.MessageCenter.repository.NotificationRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.*;
@@ -26,17 +28,20 @@ public class NotificationService {
     private final NotificationPreferenceRepository preferenceRepository;
     private final NotificationTemplateRepository templateRepository;
     private final TemplateRenderService templateRenderService;
+    private final SsePushService ssePushService;
 
     public NotificationService(NotificationRepository notificationRepository,
                                NotificationRecipientRepository recipientRepository,
                                NotificationPreferenceRepository preferenceRepository,
                                NotificationTemplateRepository templateRepository,
-                               TemplateRenderService templateRenderService) {
+                               TemplateRenderService templateRenderService,
+                               SsePushService ssePushService) {
         this.notificationRepository = notificationRepository;
         this.recipientRepository = recipientRepository;
         this.preferenceRepository = preferenceRepository;
         this.templateRepository = templateRepository;
         this.templateRenderService = templateRenderService;
+        this.ssePushService = ssePushService;
     }
 
     public record CreateRequest(
@@ -103,11 +108,12 @@ public class NotificationService {
         }
         n = notificationRepository.save(n);
         if (req.recipients()!=null && !req.recipients().isEmpty()) {
-            List<NotificationPreference> prefs = preferenceRepository.findByUserId(req.recipients().iterator().next());
+            Set<Integer> uniqueRecipients = new LinkedHashSet<>(req.recipients());
+            List<NotificationPreference> prefs = preferenceRepository.findByUserId(uniqueRecipients.iterator().next());
             Map<String, List<NotificationPreference>> grouped = prefs.stream()
                     .collect(Collectors.groupingBy(p -> p.getNotificationType() + "#" + p.getChannel()));
             List<NotificationRecipient> toSave = new ArrayList<>();
-            for (Integer uid : new LinkedHashSet<>(req.recipients())) {
+            for (Integer uid : uniqueRecipients) {
                 boolean inbox = resolveChannelEnabled(uid, req.type(), NotificationChannel.INBOX, grouped);
                 boolean email = resolveChannelEnabled(uid, req.type(), NotificationChannel.EMAIL, grouped);
                 NotificationRecipient r = new NotificationRecipient();
@@ -120,6 +126,23 @@ public class NotificationService {
                 toSave.add(r);
             }
             recipientRepository.saveAll(toSave);
+            // SSE 推送：仅对开启 inbox 的用户推送
+            List<NotificationRecipient> finalRecipients = toSave;
+            Notification finalN = n;
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    for (NotificationRecipient r : finalRecipients) {
+                        if (Boolean.TRUE.equals(r.getInboxEnabled())) {
+                            long unread = unreadCount(r.getUserId());
+                            Map<String,Object> payload = buildPushPayload(finalN);
+                            payload.put("recipientId", r.getId());
+                            payload.put("unreadCount", unread);
+                            ssePushService.push(r.getUserId(), payload);
+                        }
+                    }
+                }
+            });
         }
         return n.getId();
     }
@@ -146,24 +169,42 @@ public class NotificationService {
         n = notificationRepository.save(n);
 
         if (req.recipients() != null && !req.recipients().isEmpty()) {
+            Set<Integer> uniqueRecipients = new LinkedHashSet<>(req.recipients());
             // 批量读取偏好
-            List<NotificationPreference> prefs = preferenceRepository.findByUserId(req.recipients().iterator().next());
+            List<NotificationPreference> prefs = preferenceRepository.findByUserId(uniqueRecipients.iterator().next());
             Map<String, List<NotificationPreference>> grouped = prefs.stream()
                     .collect(Collectors.groupingBy(p -> p.getNotificationType() + "#" + p.getChannel()));
             List<NotificationRecipient> toSave = new ArrayList<>();
-            for (Integer uid : new LinkedHashSet<>(req.recipients())) {
+            for (Integer uid : uniqueRecipients) {
                 boolean inbox = resolveChannelEnabled(uid, req.type(), NotificationChannel.INBOX, grouped);
                 boolean email = resolveChannelEnabled(uid, req.type(), NotificationChannel.EMAIL, grouped);
-        NotificationRecipient r = new NotificationRecipient();
-        r.setNotification(n);
-        r.setUserId(uid);
-        r.setInboxEnabled(inbox);
-        r.setEmailEnabled(email);
-        r.setEmailSent(false);
-        r.setReadStatus(false);
+                NotificationRecipient r = new NotificationRecipient();
+                r.setNotification(n);
+                r.setUserId(uid);
+                r.setInboxEnabled(inbox);
+                r.setEmailEnabled(email);
+                r.setEmailSent(false);
+                r.setReadStatus(false);
                 toSave.add(r);
             }
             recipientRepository.saveAll(toSave);
+            // SSE 推送
+            List<NotificationRecipient> finalRecipients = toSave;
+            Notification finalN = n;
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    for (NotificationRecipient r : finalRecipients) {
+                        if (Boolean.TRUE.equals(r.getInboxEnabled())) {
+                            long unread = unreadCount(r.getUserId());
+                            Map<String,Object> payload = buildPushPayload(finalN);
+                            payload.put("recipientId", r.getId());
+                            payload.put("unreadCount", unread);
+                            ssePushService.push(r.getUserId(), payload);
+                        }
+                    }
+                }
+            });
         }
         return n.getId();
     }
@@ -238,5 +279,19 @@ public class NotificationService {
 
     public long unreadCount(Integer userId) {
         return recipientRepository.countByUserIdAndReadStatusFalse(userId);
+    }
+
+    private Map<String,Object> buildPushPayload(Notification n) {
+        Map<String,Object> payload = new LinkedHashMap<>();
+        payload.put("notificationId", n.getId());
+        payload.put("type", n.getType()==null? null : n.getType().name());
+        payload.put("title", n.getTitle());
+        payload.put("content", n.getContent());
+        payload.put("priority", n.getPriority()==null? null : n.getPriority().name());
+        payload.put("businessRefType", n.getBusinessRefType());
+        payload.put("businessRefId", n.getBusinessRefId());
+        payload.put("templateCode", n.getTemplateCode());
+        payload.put("createdAt", n.getCreatedAt());
+        return payload;
     }
 }
