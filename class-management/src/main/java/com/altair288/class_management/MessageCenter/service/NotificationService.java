@@ -277,6 +277,38 @@ public class NotificationService {
         return result;
     }
 
+    // 全量/历史（含已读），支持分页与按已读过滤
+    @Transactional
+    public Map<String,Object> listHistory(Integer userId, int page, int size, Boolean readStatus) {
+        if (page < 0) page = 0; if (size <= 0 || size > 200) size = 50;
+        var pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        var p = recipientRepository.findHistory(userId, readStatus, pageable);
+        List<Map<String,Object>> items = new ArrayList<>();
+        for (NotificationRecipient r : p.getContent()) {
+            Notification n = r.getNotification();
+            Map<String,Object> row = new LinkedHashMap<>();
+            row.put("recipientId", r.getId());
+            row.put("notificationId", n.getId());
+            row.put("type", n.getType()==null? null : n.getType().name());
+            row.put("title", n.getTitle());
+            row.put("content", n.getContent());
+            row.put("priority", n.getPriority()==null? null : n.getPriority().name());
+            row.put("businessRefType", n.getBusinessRefType());
+            row.put("businessRefId", n.getBusinessRefId());
+            row.put("createdAt", n.getCreatedAt());
+            row.put("read", r.getReadStatus());
+            row.put("readAt", r.getReadAt());
+            items.add(row);
+        }
+        return Map.of(
+                "page", p.getNumber(),
+                "size", p.getSize(),
+                "totalElements", p.getTotalElements(),
+                "totalPages", p.getTotalPages(),
+                "content", items
+        );
+    }
+
     public long unreadCount(Integer userId) {
         return recipientRepository.countByUserIdAndReadStatusFalse(userId);
     }

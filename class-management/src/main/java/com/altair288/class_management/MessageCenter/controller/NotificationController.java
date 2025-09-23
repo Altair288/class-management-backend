@@ -28,6 +28,17 @@ public class NotificationController {
         return Map.of("unread", notificationService.unreadCount(userId));
     }
 
+    // 历史记录（包含已读）分页查询: /api/notifications/history?userId=1&page=0&size=50&readStatus=all|true|false
+    @GetMapping("/history")
+    public Map<String,Object> history(@RequestParam Integer userId,
+                                      @RequestParam(defaultValue = "0") int page,
+                                      @RequestParam(defaultValue = "50") int size,
+                                      @RequestParam(required = false) String readStatus) {
+        Boolean rs = null;
+        if ("true".equalsIgnoreCase(readStatus)) rs = true; else if ("false".equalsIgnoreCase(readStatus)) rs = false;
+        return notificationService.listHistory(userId, page, size, rs);
+    }
+
     public record MarkReadRequest(Integer userId, List<Long> recipientIds) {}
     @PostMapping("/mark-read")
     public Map<String, Object> markRead(@RequestBody MarkReadRequest req) {
