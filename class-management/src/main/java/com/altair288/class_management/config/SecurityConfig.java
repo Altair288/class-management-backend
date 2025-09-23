@@ -47,6 +47,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(Customizer.withDefaults())
             .authorizeHttpRequests(auth -> auth
+                // Spring Boot 默认错误转发路径，必须放行，否则未认证 -> 触发 /error -> 再次鉴权失败形成递归日志
+                .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/users/register/student").permitAll()
                 .requestMatchers("/api/users/register/parent").permitAll()
                 .requestMatchers("/api/users/register/teacher").permitAll()
