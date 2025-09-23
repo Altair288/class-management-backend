@@ -15,15 +15,24 @@ import java.util.Map;
 public class DebugSessionController {
 
     @GetMapping("/session")
-    public Map<String,Object> session(HttpServletRequest request) {
-        Map<String,Object> m = new LinkedHashMap<>();
+    public Map<String, Object> session(HttpServletRequest request) {
+        Map<String, Object> m = new LinkedHashMap<>();
         var session = request.getSession(false);
         m.put("sessionExists", session != null);
-        m.put("sessionId", session == null? null: session.getId());
+        m.put("sessionId", session == null ? null : session.getId());
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        m.put("principal", auth == null? null: auth.getName());
-        m.put("authClass", auth == null? null: auth.getClass().getName());
+        m.put("principal", auth == null ? null : auth.getName());
+        m.put("authClass", auth == null ? null : auth.getClass().getName());
         m.put("authenticated", auth != null && auth.isAuthenticated());
         return m;
+    }
+
+    @GetMapping("memory-status")
+    public MemoryStats getMemoryStatistics() {
+        MemoryStats stats = new MemoryStats();
+        stats.setHeapSize(Runtime.getRuntime().totalMemory());
+        stats.setHeapMaxSize(Runtime.getRuntime().maxMemory());
+        stats.setHeapFreeSize(Runtime.getRuntime().freeMemory());
+        return stats;
     }
 }

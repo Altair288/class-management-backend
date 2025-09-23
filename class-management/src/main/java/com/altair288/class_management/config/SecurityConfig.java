@@ -15,7 +15,10 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Configuration
 @EnableWebSecurity
@@ -87,12 +90,14 @@ public class SecurityConfig {
                 .logoutUrl("/api/users/logout")
                 .logoutSuccessHandler((req, res, auth) -> {
                     res.setHeader("X-Path", req.getRequestURI());
-                    if (auth != null) {
-                        res.setHeader("X-User", auth.getName());
-                    }
+                    // 不再写入可能含非 ASCII 的名字到 Header，改为写入 JSON Body
+                    String displayName = auth != null ? auth.getName() : "";
+                    Map<String, Object> body = new HashMap<>();
+                    body.put("message", "登出成功");
+                    body.put("displayName", displayName);
                     res.setStatus(200);
                     res.setContentType("application/json;charset=UTF-8");
-                    res.getWriter().write("{\"message\": \"登出成功\"}");
+                    res.getWriter().write(new ObjectMapper().writeValueAsString(body));
                 })
             );
         return http.build();
