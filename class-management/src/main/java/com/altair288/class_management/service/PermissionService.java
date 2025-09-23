@@ -4,7 +4,6 @@ import com.altair288.class_management.model.Permission;
 import com.altair288.class_management.repository.PermissionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import java.util.Optional;
 
 @Service
 public class PermissionService {

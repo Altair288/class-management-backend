@@ -20,16 +20,12 @@ import com.altair288.class_management.service.ClassService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.dao.DataIntegrityViolationException;
 
 import com.altair288.class_management.dto.TeacherDTO;
-import com.altair288.class_management.model.Teacher;
-import com.altair288.class_management.service.TeacherService;
 
 import java.util.List;
 

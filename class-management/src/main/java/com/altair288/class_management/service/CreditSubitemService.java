@@ -1,7 +1,6 @@
 package com.altair288.class_management.service;
 
 import com.altair288.class_management.dto.CreditSubitemDTO;
-import com.altair288.class_management.model.CreditItem;
 import com.altair288.class_management.model.CreditSubitem;
 import com.altair288.class_management.repository.CreditItemRepository;
 import com.altair288.class_management.repository.CreditSubitemRepository;
