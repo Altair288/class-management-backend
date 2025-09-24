@@ -301,6 +301,7 @@ public class LeaveRequestService {
             dto.setDays(lr.getDays());
             dto.setCreatedAt(lr.getCreatedAt());
             dto.setReviewedAt(lr.getReviewedAt());
+            try { dto.setReason(lr.getReason()); } catch (Exception ignored) {}
             var apprList = grouped.getOrDefault(lr.getId(), java.util.List.of());
             apprList.sort(java.util.Comparator.comparing(LeaveApproval::getStepOrder, java.util.Comparator.nullsLast(Integer::compareTo)));
             java.util.List<com.altair288.class_management.dto.LeaveApprovalDTO> apprDTOs = new java.util.ArrayList<>(apprList.size());

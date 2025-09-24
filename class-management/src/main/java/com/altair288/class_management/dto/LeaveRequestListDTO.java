@@ -21,6 +21,8 @@ public class LeaveRequestListDTO {
     private String pendingRoleCode;
     private String pendingRoleDisplayName;
     private List<LeaveApprovalDTO> approvals; // 可选（列表页是否需要全部审批记录）
+    // 新增：请假原因
+    private String reason;
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
@@ -56,4 +58,6 @@ public class LeaveRequestListDTO {
     public void setPendingRoleDisplayName(String pendingRoleDisplayName) { this.pendingRoleDisplayName = pendingRoleDisplayName; }
     public List<LeaveApprovalDTO> getApprovals() { return approvals; }
     public void setApprovals(List<LeaveApprovalDTO> approvals) { this.approvals = approvals; }
+    public String getReason() { return reason; }
+    public void setReason(String reason) { this.reason = reason; }
 }
