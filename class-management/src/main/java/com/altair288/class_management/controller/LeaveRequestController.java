@@ -231,4 +231,16 @@ public class LeaveRequestController {
         List<LeaveCalendarDTO> list = leaveRequestService.getCalendarData(classId, status, start, end);
         return ResponseEntity.ok(list);
     }
+
+    // 学生个人日历：仅返回该学生的请假记录（可按状态和日期范围过滤）
+    // GET /api/leave/calendar/student/{studentId}?status=&start=&end=
+    @GetMapping("/calendar/student/{studentId}")
+    public ResponseEntity<List<LeaveCalendarDTO>> studentCalendar(
+            @PathVariable Integer studentId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) Date start,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) Date end) {
+        List<LeaveCalendarDTO> list = leaveRequestService.getStudentCalendarData(studentId, status, start, end);
+        return ResponseEntity.ok(list);
+    }
 }

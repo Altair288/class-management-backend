@@ -757,6 +757,28 @@ public class LeaveRequestService {
         }
         return list;
     }
+
+    // 学生个人日历视图（不依赖班级过滤，只返回本人记录）
+    @Transactional(readOnly = true)
+    public List<LeaveCalendarDTO> getStudentCalendarData(Integer studentId, String status, Date start, Date end) {
+        if (studentId == null) return java.util.Collections.emptyList();
+        var rows = leaveRequestRepository.findForStudentCalendar(studentId, status, start, end);
+        List<LeaveCalendarDTO> list = new ArrayList<>();
+        for (var r : rows) {
+            list.add(new LeaveCalendarDTO(
+                    r.getId(),
+                    r.getStudentId(),
+                    r.getStudentName(),
+                    r.getStudentNo(),
+                    r.getLeaveTypeCode(),
+                    r.getLeaveTypeName(),
+                    r.getStatus(),
+                    r.getStartDate(),
+                    r.getEndDate()
+            ));
+        }
+        return list;
+    }
     // =============== 通知辅助方法 ==================
     private void notifyNextStep(LeaveRequest leaveRequest, LeaveApproval pending) {
         if (pending == null || pending.getTeacherId() == null) return;

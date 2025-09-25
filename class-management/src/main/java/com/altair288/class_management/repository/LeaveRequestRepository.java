@@ -55,6 +55,18 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Inte
                                              @Param("start") Date start,
                                              @Param("end") Date end);
 
+    // 学生个人日历：仅自己的请假单，支持按状态与日期范围过滤（日期范围采用交集判断）
+    @Query("select lr.id as id, s.id as studentId, s.name as studentName, s.studentNo as studentNo, lt.typeCode as leaveTypeCode, lt.typeName as leaveTypeName, lr.status as status, lr.startDate as startDate, lr.endDate as endDate " +
+        "from LeaveRequest lr join Student s on s.id = lr.studentId join LeaveTypeConfig lt on lt.id = lr.leaveTypeId " +
+        "where s.id = :studentId " +
+        "and (:status is null or lr.status = :status) " +
+        "and (:start is null or lr.endDate >= :start) " +
+        "and (:end is null or lr.startDate <= :end)")
+    List<CalendarProjection> findForStudentCalendar(@Param("studentId") Integer studentId,
+                               @Param("status") String status,
+                               @Param("start") Date start,
+                               @Param("end") Date end);
+
     // 通过审批表按教师查询其关联的请假单（单级审批，一单一记录）
     @Query("select lr from LeaveRequest lr where exists (select 1 from LeaveApproval la where la.leaveId = lr.id and la.teacherId = :teacherId)")
     List<LeaveRequest> findByApprover(@Param("teacherId") Integer teacherId);
