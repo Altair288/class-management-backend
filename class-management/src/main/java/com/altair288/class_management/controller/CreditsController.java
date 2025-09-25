@@ -39,13 +39,13 @@ public class CreditsController {
         return ResponseEntity.ok(creditItemService.list(category));
     }
 
-    // 新增（与你前端 POST /api/credits/items 对齐）
+    // 新增（与前端 POST /api/credits/items 对齐）
     @PostMapping("/items")
     public ResponseEntity<CreditItemDTO> create(@RequestBody CreditItemDTO dto) {
         return ResponseEntity.ok(creditItemService.create(dto));
     }
 
-    // 编辑（与你前端 POST /api/credits/items/{id} 对齐）
+    // 编辑（与前端 POST /api/credits/items/{id} 对齐）
     @PostMapping("/items/{id}")
     public ResponseEntity<CreditItemDTO> update(@PathVariable Integer id, @RequestBody CreditItemDTO dto) {
         return ResponseEntity.ok(creditItemService.update(id, dto));
