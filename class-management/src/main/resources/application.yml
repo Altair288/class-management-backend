@@ -1,6 +1,22 @@
 spring:
- datasource:
-  url: jdbc:mysql://localhost:3306/class_management?useSSL=false&serverTimezone=UTC
-  username: root
-  password: 123456
-  driver-class-name: com.mysql.cj.jdbc.Driver
+    datasource:
+        url: jdbc:mysql://${DB_HOST:${MYSQL_HOST:db}}:${DB_PORT:3306}/${DB_NAME:class_management}?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+        username: ${DB_USER:root}
+        password: ${DB_PASSWORD:rootpass}
+        driver-class-name: com.mysql.cj.jdbc.Driver
+    jpa:
+        hibernate:
+            ddl-auto: update
+
+management:
+    endpoints:
+        web:
+            exposure:
+                include: health,info
+    endpoint:
+        health:
+            probes:
+                enabled: true
+
+server:
+    port: 8080
