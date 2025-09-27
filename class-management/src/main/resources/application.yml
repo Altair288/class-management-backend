@@ -8,7 +8,15 @@ spring:
     sql:
         init:
             mode: never
-    # 不在基础配置里放 ddl-auto，按 profile 控制（dev=update, prod=none）
+    # 全局强制禁止 Hibernate 自动修改结构（所有 profile 生效）
+    jpa:
+        hibernate:
+            ddl-auto: none   # 兜底：所有环境禁止自动建表/更新
+        generate-ddl: false
+        properties:
+            hibernate:
+                hbm2ddl:
+                    auto: none  # 再次兜底，防止有人用 -Dhibernate.hbm2ddl.auto=update 覆盖
 
 management:
     endpoints:
@@ -24,6 +32,7 @@ server:
     port: 8080
 
 # 说明：
-# 1. dev 环境的结构演进由 Hibernate ddl-auto=update（application-dev.yml）+ 可选 Flyway 调试
-# 2. prod 环境只允许 Flyway 迁移（application-prod.yml），禁止 Hibernate 改结构
-# 3. schema.sql 已移除，历史 DDL 被拆分到 Flyway V1__baseline.sql
+# 1. 所有环境结构演进只允许通过 Flyway 迁移脚本（db/migration 下 Vx__*.sql）。
+# 2. 若需要新增表/列：新增新的 V{N}__description.sql，再提交；禁止修改已发布版本脚本。
+# 3. 禁止临时开启 hibernate.hbm2ddl.auto=update；若必须试验，请建临时分支并不要提交改动。
+# 4. schema.sql 已移除，历史结构在 V1__baseline.sql，数据种子在 V2__seed_data.sql。

@@ -11,54 +11,52 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import jakarta.annotation.PostConstruct;
 
+import com.altair288.class_management.repository.UserRepository;
+
 /**
  * DEV 环境演示数据初始化（从原 TestDataInitializer 重命名）。
- * 注意：结构由 Flyway 管理；此类只补充演示/测试数据，幂等性有限，重复启动可能抛约束异常需手动清理数据库。
+ * 注意：结构由 Flyway 管理；此类只补充演示/测试数据。
+ * 幂等策略：
+ *  1) 通过哨兵(admin 用户) 判断是否已初始化；存在则整体跳过，避免重复插入导致唯一约束冲突。
+ *  2) 若未来需要“增量补齐”，可改为 ensureXxx() 形式逐项判断。
  */
 @Component
 @Profile("dev")
 public class TestDataInitializerDev {
     private static final Logger logger = LoggerFactory.getLogger(TestDataInitializerDev.class);
 
-    @Autowired
-    private UserService userService;
-    @Autowired
-    private RoleService roleService;
-    @Autowired
-    private PermissionService permissionService;
-    @Autowired
-    private UserRoleService userRoleService;
-    @Autowired
-    private RolePermissionService rolePermissionService;
-    @Autowired
-    private TeacherService teacherService;
-    @Autowired
-    private StudentService studentService;
-    @Autowired
-    private ParentService parentService;
-    @Autowired
-    private ClassService classService;
-    @Autowired
-    private StudentCreditService studentCreditService;
-    @Autowired
-    private CreditItemRepository creditItemRepository;
-    @Autowired
-    private CreditItemService creditItemService;
-    @Autowired
-    private LeaveTypeConfigService leaveTypeConfigService;
-    @Autowired
-    private LeaveRequestService leaveRequestService;
-    @Autowired
-    private StudentLeaveBalanceService studentLeaveBalanceService;
-    @Autowired
-    private com.altair288.class_management.repository.LeaveTypeConfigRepository leaveTypeConfigRepository;
-    @Autowired
-    private com.altair288.class_management.repository.DepartmentRepository departmentRepository;
-    @Autowired
-    private com.altair288.class_management.repository.RoleAssignmentRepository roleAssignmentRepository;
+    @Autowired private UserService userService;
+    @Autowired private RoleService roleService;
+    @Autowired private PermissionService permissionService;
+    @Autowired private UserRoleService userRoleService;
+    @Autowired private RolePermissionService rolePermissionService;
+    @Autowired private TeacherService teacherService;
+    @Autowired private StudentService studentService;
+    @Autowired private ParentService parentService;
+    @Autowired private ClassService classService;
+    @Autowired private StudentCreditService studentCreditService;
+    @Autowired private CreditItemRepository creditItemRepository;
+    @Autowired private CreditItemService creditItemService;
+    @Autowired private LeaveTypeConfigService leaveTypeConfigService;
+    @Autowired private StudentLeaveBalanceService studentLeaveBalanceService;
+    @Autowired private com.altair288.class_management.repository.LeaveTypeConfigRepository leaveTypeConfigRepository;
+    @Autowired private com.altair288.class_management.repository.DepartmentRepository departmentRepository;
+    @Autowired private com.altair288.class_management.repository.RoleAssignmentRepository roleAssignmentRepository;
+    @Autowired private UserRepository userRepository; // 用于幂等检测
 
     @PostConstruct
     public void init() {
+        // 1. 哨兵检测：若 admin 用户存在则判定已初始化，直接跳过
+        try {
+            if (userRepository.existsByUsername("admin")) {
+                logger.info("[TestDataInitializerDev] 检测到 admin 用户已存在，视为演示数据已初始化，跳过后续创建。若需重置请清空数据库或删除相关记录。");
+                return;
+            }
+        } catch (Exception e) {
+            // 如果检查异常（极少数情况），仍然继续，避免因检测失败阻塞初始化
+            logger.warn("[TestDataInitializerDev] 初始化前检测异常，继续执行初始化: {}", e.getMessage());
+        }
+
         try {
             final String initialPassword = "Test@123456";
             Role adminRole = roleService.getByCode(Role.Codes.ADMIN);
@@ -315,15 +313,15 @@ public class TestDataInitializerDev {
 
     private void createCreditItemsIfAbsent() {
         if (!creditItemRepository.existsByCategory("德"))
-            creditItemService.create(new CreditItemDTO(null, "德", "德育", 60.0, 100.0, true, "思想品德与道德修养"));
+            creditItemService.create(new CreditItemDTO(null, "德", "德育", 100.0, 100.0, true, "思想品德与道德修养"));
         if (!creditItemRepository.existsByCategory("智"))
-            creditItemService.create(new CreditItemDTO(null, "智", "智育", 60.0, 100.0, true, "学业成绩与知识掌握"));
+            creditItemService.create(new CreditItemDTO(null, "智", "智育", 100.0, 100.0, true, "学业成绩与知识掌握"));
         if (!creditItemRepository.existsByCategory("体"))
-            creditItemService.create(new CreditItemDTO(null, "体", "体育", 60.0, 100.0, true, "身体素质与健康状况"));
+            creditItemService.create(new CreditItemDTO(null, "体", "体育", 100.0, 100.0, true, "身体素质与健康状况"));
         if (!creditItemRepository.existsByCategory("美"))
-            creditItemService.create(new CreditItemDTO(null, "美", "美育", 60.0, 100.0, true, "艺术修养与审美能力"));
+            creditItemService.create(new CreditItemDTO(null, "美", "美育", 100.0, 100.0, true, "艺术修养与审美能力"));
         if (!creditItemRepository.existsByCategory("劳"))
-            creditItemService.create(new CreditItemDTO(null, "劳", "劳育", 60.0, 100.0, true, "劳动技能与实践能力"));
+            creditItemService.create(new CreditItemDTO(null, "劳", "劳育", 100.0, 100.0, true, "劳动技能与实践能力"));
     }
 
     private LeaveTypeConfig ensureLeaveType(String code, String name, int max, int allowance, boolean approval,
