@@ -4,9 +4,11 @@ spring:
         username: ${DB_USER:root}
         password: ${DB_PASSWORD:rootpass}
         driver-class-name: com.mysql.cj.jdbc.Driver
-    jpa:
-        hibernate:
-            ddl-auto: update
+    # 全局禁止 Spring Boot 通过 schema.sql/data.sql 进行初始化（避免与 Flyway 冲突）
+    sql:
+        init:
+            mode: never
+    # 不在基础配置里放 ddl-auto，按 profile 控制（dev=update, prod=none）
 
 management:
     endpoints:
@@ -20,3 +22,8 @@ management:
 
 server:
     port: 8080
+
+# 说明：
+# 1. dev 环境的结构演进由 Hibernate ddl-auto=update（application-dev.yml）+ 可选 Flyway 调试
+# 2. prod 环境只允许 Flyway 迁移（application-prod.yml），禁止 Hibernate 改结构
+# 3. schema.sql 已移除，历史 DDL 被拆分到 Flyway V1__baseline.sql

@@ -1,0 +1,20 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.sql.init.SqlInitializationAutoConfiguration # 彻底禁用默认 schema.sql 初始化
+  jpa:
+    hibernate:
+      ddl-auto: none # 生产不让 Hibernate 改结构
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true # 若已有手工建库可基线
+    table: flyway_schema_history
+    validate-on-migrate: true
+  sql:
+    init:
+      mode: never  # 禁止执行 classpath 下的 schema.sql，全部交给 Flyway
+
+# 可按需添加连接池/监控等 prod 专用配置

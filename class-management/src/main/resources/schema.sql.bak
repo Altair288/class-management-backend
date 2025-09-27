@@ -83,21 +83,6 @@ CREATE TABLE `class` (
   ,CONSTRAINT `fk_class_department` FOREIGN KEY (`department_id`) REFERENCES `department`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- 新增：系部表与班级-系部关联（需在引用前创建）
-CREATE TABLE IF NOT EXISTS `department` (
-  `id` int NOT NULL AUTO_INCREMENT COMMENT '系部ID',
-  `name` varchar(50) NOT NULL COMMENT '系部名称',
-  `code` varchar(20) NOT NULL COMMENT '系部代码',
-  `description` text NULL COMMENT '描述',
-  `enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_department_code` (`code`),
-  UNIQUE KEY `uk_department_name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-
 
 -- class_management.class_notice definition
 
