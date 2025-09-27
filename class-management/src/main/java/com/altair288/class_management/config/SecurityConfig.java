@@ -110,6 +110,8 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         // 使用模式，覆盖 localhost 与常见私有网段，便于手机通过局域网 IP 访问
         config.setAllowedOriginPatterns(List.of(
+            "https://arch.altair288.eu.org:*",
+            "http://arch.altair288.eu.org:*",
             "http://localhost:*",
             "http://127.0.0.1:*",
             "http://10.*:*",
