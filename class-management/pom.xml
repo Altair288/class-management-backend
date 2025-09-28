@@ -118,6 +118,12 @@
 			<version>1.18.32</version>
 			<optional>true</optional>
 		</dependency>
+		<!-- MinIO S3 compatible client -->
+		<dependency>
+			<groupId>io.minio</groupId>
+			<artifactId>minio</artifactId>
+			<version>8.5.17</version>
+		</dependency>
 	</dependencies>
 
 	<build>

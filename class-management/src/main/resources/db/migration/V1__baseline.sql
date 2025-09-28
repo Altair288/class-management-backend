@@ -254,10 +254,33 @@ CREATE TABLE IF NOT EXISTS `student_leave_balance` (
   CONSTRAINT `student_leave_balance_ibfk_2` FOREIGN KEY (`leave_type_id`) REFERENCES `leave_type_config` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- 对象存储连接需先于 file_storage_config 创建，便于内联外键
+CREATE TABLE IF NOT EXISTS `object_storage_connection` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '连接ID',
+  `name` VARCHAR(50) NOT NULL COMMENT '名称/别名',
+  `provider` VARCHAR(20) NOT NULL DEFAULT 'MINIO' COMMENT '供应商',
+  `endpoint_url` VARCHAR(255) NOT NULL COMMENT '终端地址 http(s)://host:port',
+  `access_key_encrypted` VARCHAR(255) NOT NULL COMMENT '加密AccessKey',
+  `secret_key_encrypted` VARCHAR(255) NOT NULL COMMENT '加密SecretKey',
+  `secure_flag` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否HTTPS',
+  `path_style_access` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Path-Style访问',
+  `default_presign_expire_seconds` INT NOT NULL DEFAULT 600 COMMENT '预签名默认有效期秒',
+  `active` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
+  `last_test_status` ENUM('SUCCESS','FAIL','UNKNOWN') NOT NULL DEFAULT 'UNKNOWN' COMMENT '最近测试状态',
+  `last_test_time` TIMESTAMP NULL DEFAULT NULL COMMENT '最近测试时间',
+  `last_test_error` VARCHAR(300) DEFAULT NULL COMMENT '最近错误信息截断',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE IF NOT EXISTS `file_storage_config` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '配置ID',
   `bucket_name` varchar(100) NOT NULL COMMENT '存储桶名称',
   `bucket_purpose` varchar(100) NOT NULL COMMENT '存储桶用途',
+  `connection_id` BIGINT NOT NULL COMMENT '对象存储连接ID',
+  `base_path` VARCHAR(100) DEFAULT NULL COMMENT '对象Key逻辑前缀(可空)',
   `max_file_size` bigint NOT NULL DEFAULT 5242880 COMMENT '最大文件大小',
   `allowed_extensions` json NOT NULL COMMENT '允许的扩展名',
   `allowed_mime_types` json NOT NULL COMMENT '允许的MIME类型',
@@ -267,7 +290,9 @@ CREATE TABLE IF NOT EXISTS `file_storage_config` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `bucket_name` (`bucket_name`)
+  UNIQUE KEY `uk_bucket_name` (`bucket_name`),
+  KEY `idx_connection` (`connection_id`),
+  CONSTRAINT `fk_fsc_connection` FOREIGN KEY (`connection_id`) REFERENCES `object_storage_connection`(`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS `leave_request` (
@@ -295,25 +320,47 @@ CREATE TABLE IF NOT EXISTS `leave_request` (
   CONSTRAINT `leave_request_ibfk_3` FOREIGN KEY (`leave_type_id`) REFERENCES `leave_type_config` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- 通用文件元数据表（精简版，使用 storage_config_id 外键方式）
+CREATE TABLE IF NOT EXISTS `file_object` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '文件ID',
+  `storage_config_id` INT NOT NULL COMMENT '关联 file_storage_config.id',
+  `bucket_name` VARCHAR(100) NOT NULL COMMENT '冗余存储桶名称（方便查询与快速过滤）',
+  `object_key` VARCHAR(500) NOT NULL COMMENT '对象完整Key',
+  `original_filename` VARCHAR(255) NOT NULL COMMENT '原始文件名',
+  `ext` VARCHAR(20) NOT NULL COMMENT '扩展名(小写)',
+  `mime_type` VARCHAR(100) DEFAULT NULL COMMENT 'MIME类型',
+  `size_bytes` BIGINT DEFAULT NULL COMMENT '大小字节',
+  `status` ENUM('UPLOADING','COMPLETED','FAILED','DELETED') NOT NULL DEFAULT 'UPLOADING' COMMENT '状态',
+  `uploader_user_id` INT NOT NULL COMMENT '上传者用户ID',
+  `business_ref_type` VARCHAR(50) NOT NULL COMMENT '业务类型',
+  `business_ref_id` BIGINT NOT NULL COMMENT '业务ID',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `completed_at` TIMESTAMP NULL DEFAULT NULL COMMENT '完成时间',
+  `deleted_at` TIMESTAMP NULL DEFAULT NULL COMMENT '删除时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_storage_config` (`storage_config_id`),
+  UNIQUE KEY `uk_storage_object` (`storage_config_id`,`object_key`),
+  KEY `idx_bucket_key` (`bucket_name`,`object_key`),
+  KEY `idx_status` (`status`),
+  KEY `idx_biz_ref` (`business_ref_type`,`business_ref_id`),
+  KEY `idx_uploader` (`uploader_user_id`),
+  CONSTRAINT `fk_file_object_storage_config` FOREIGN KEY (`storage_config_id`) REFERENCES `file_storage_config`(`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_file_object_uploader` FOREIGN KEY (`uploader_user_id`) REFERENCES `user`(`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE IF NOT EXISTS `leave_attachment` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '附件ID',
   `leave_request_id` int NOT NULL COMMENT '请假申请ID',
-  `original_name` varchar(255) NOT NULL COMMENT '原始文件名',
-  `file_name` varchar(255) NOT NULL COMMENT '存储文件名',
-  `file_path` varchar(500) NOT NULL COMMENT '存储路径',
-  `bucket_name` varchar(100) NOT NULL DEFAULT 'leave-attachments' COMMENT '存储桶',
-  `file_size` bigint NOT NULL COMMENT '文件大小',
-  `file_type` varchar(100) NOT NULL COMMENT 'MIME类型',
-  `file_extension` varchar(10) NOT NULL COMMENT '扩展名',
-  `upload_status` enum('uploading','completed','failed') DEFAULT 'uploading' COMMENT '上传状态',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
-  `created_by` int NOT NULL COMMENT '上传者ID',
+  `file_object_id` BIGINT NOT NULL COMMENT '关联通用文件 file_object.id',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '绑定时间',
+  `created_by` int NOT NULL COMMENT '上传学生ID',
   PRIMARY KEY (`id`),
   KEY `leave_request_id` (`leave_request_id`),
+  KEY `file_object_id` (`file_object_id`),
   KEY `created_by` (`created_by`),
-  KEY `upload_status` (`upload_status`),
-  CONSTRAINT `leave_attachment_ibfk_1` FOREIGN KEY (`leave_request_id`) REFERENCES `leave_request` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `leave_attachment_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `student` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_leave_attachment_leave` FOREIGN KEY (`leave_request_id`) REFERENCES `leave_request` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_leave_attachment_file_object` FOREIGN KEY (`file_object_id`) REFERENCES `file_object`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_leave_attachment_student` FOREIGN KEY (`created_by`) REFERENCES `student` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS `approval_workflow` (
