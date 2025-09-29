@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface FileObjectRepository extends JpaRepository<FileObject, Long> {
     List<FileObject> findByBusinessRefTypeAndBusinessRefIdAndStatus(String businessRefType, Long businessRefId, String status);
+    long countByStorageConfigId(Integer storageConfigId);
 }

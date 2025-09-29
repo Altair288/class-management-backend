@@ -52,4 +52,30 @@ public class ObjectStorageController {
     public FileObjectDTO getDownloadInfo(@PathVariable Long id){
         return service.getDownloadInfo(id);
     }
+
+    // ========== Storage Config Management ==========
+    @GetMapping("/storage-configs")
+    public List<FileStorageConfigDTO> listStorageConfigs(){
+        return service.listStorageConfigs();
+    }
+
+    @GetMapping("/storage-configs/{id}")
+    public FileStorageConfigDTO getStorageConfig(@PathVariable Integer id){
+        return service.getStorageConfig(id);
+    }
+
+    @PostMapping("/storage-configs")
+    public FileStorageConfigDTO saveStorageConfig(@Valid @RequestBody SaveFileStorageConfigRequest req){
+        return service.saveStorageConfig(req);
+    }
+
+    @PostMapping("/storage-configs/{id}/enable")
+    public FileStorageConfigDTO enableStorageConfig(@PathVariable Integer id, @RequestParam("enabled") boolean enabled){
+        return service.enableStorageConfig(id, enabled);
+    }
+
+    @DeleteMapping("/storage-configs/{id}")
+    public void deleteStorageConfig(@PathVariable Integer id){
+        service.deleteStorageConfig(id);
+    }
 }

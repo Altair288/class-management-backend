@@ -1,6 +1,8 @@
 package com.altair288.class_management.ObjectStorage.service;
 
 import com.altair288.class_management.ObjectStorage.dto.*;
+import com.altair288.class_management.ObjectStorage.exception.BadRequestException;
+import com.altair288.class_management.ObjectStorage.exception.NotFoundException;
 import com.altair288.class_management.ObjectStorage.model.*;
 import com.altair288.class_management.ObjectStorage.repository.*;
 import com.altair288.class_management.model.LeaveAttachment;
@@ -100,9 +102,9 @@ public class ObjectStorageService {
         Integer currentUserId = resolveCurrentUserId();
         FileStorageConfig cfg = configRepo.findByBucketPurpose(req.getBucketPurpose())
                 .orElseThrow(() -> new RuntimeException("未配置对应用途的存储桶:"+req.getBucketPurpose()));
-        ObjectStorageConnection conn = connectionRepo.findById(cfg.getConnectionId().longValue())
-                .orElseThrow(() -> new RuntimeException("关联连接不存在"));
-        if(Boolean.FALSE.equals(cfg.getEnabled())) throw new RuntimeException("存储配置已禁用");
+    ObjectStorageConnection conn = connectionRepo.findById(cfg.getConnectionId().longValue())
+        .orElseThrow(() -> new NotFoundException("关联连接不存在"));
+    if(Boolean.FALSE.equals(cfg.getEnabled())) throw new BadRequestException("存储配置已禁用");
 
         String ext = extractExt(req.getOriginalFilename());
         // 校验扩展名
@@ -136,16 +138,16 @@ public class ObjectStorageService {
     @Transactional
     public FileObjectDTO confirmUpload(ConfirmUploadRequest req){
         FileObject fo = fileRepo.findById(req.getFileObjectId())
-                .orElseThrow(() -> new RuntimeException("文件记录不存在"));
+                .orElseThrow(() -> new NotFoundException("文件记录不存在"));
         if(!"UPLOADING".equals(fo.getStatus())){
-            throw new RuntimeException("当前状态不允许确认:"+fo.getStatus());
+            throw new BadRequestException("当前状态不允许确认:"+fo.getStatus());
         }
         if(req.getSizeBytes()!=null) fo.setSizeBytes(req.getSizeBytes());
         if(req.getMimeType()!=null) fo.setMimeType(req.getMimeType());
 
         // 校验 mime / size
-        FileStorageConfig cfg = configRepo.findById(fo.getStorageConfigId())
-                .orElseThrow(() -> new RuntimeException("存储配置不存在"));
+    FileStorageConfig cfg = configRepo.findById(fo.getStorageConfigId())
+        .orElseThrow(() -> new NotFoundException("存储配置不存在"));
         if(req.getMimeType()!=null) validateMimeType(req.getMimeType(), cfg);
         if(req.getSizeBytes()!=null && cfg.getMaxFileSize()!=null && req.getSizeBytes() > cfg.getMaxFileSize()){
             throw new RuntimeException("文件大小超过允许限制:"+cfg.getMaxFileSize());
@@ -185,10 +187,10 @@ public class ObjectStorageService {
 
     public FileObjectDTO getDownloadInfo(Long id){
         FileObject fo = fileRepo.findById(id).orElseThrow(() -> new RuntimeException("文件不存在"));
-        FileStorageConfig cfg = configRepo.findById(fo.getStorageConfigId())
-                .orElseThrow(() -> new RuntimeException("存储配置不存在"));
-        ObjectStorageConnection conn = connectionRepo.findById(cfg.getConnectionId().longValue())
-                .orElseThrow(() -> new RuntimeException("连接不存在"));
+    FileStorageConfig cfg = configRepo.findById(fo.getStorageConfigId())
+        .orElseThrow(() -> new NotFoundException("存储配置不存在"));
+    ObjectStorageConnection conn = connectionRepo.findById(cfg.getConnectionId().longValue())
+        .orElseThrow(() -> new NotFoundException("连接不存在"));
         int expire = conn.getDefaultPresignExpireSeconds()==null?600:conn.getDefaultPresignExpireSeconds();
         String url = presignGet(conn, fo.getBucketName(), fo.getObjectKey(), expire);
         return toDTO(fo, url);
@@ -328,4 +330,101 @@ public class ObjectStorageService {
         return userOpt.map(User::getId).orElse(null);
     }
     private String truncate(String s){ if(s==null) return null; return s.length()>300? s.substring(0,300): s; }
+
+    // ===================== Storage Config Management =====================
+    public List<FileStorageConfigDTO> listStorageConfigs(){
+        List<FileStorageConfigDTO> out = new ArrayList<>();
+        for(FileStorageConfig cfg: configRepo.findAll()){
+            out.add(toDTO(cfg));
+        }
+        return out;
+    }
+
+    public FileStorageConfigDTO getStorageConfig(Integer id){
+        FileStorageConfig cfg = configRepo.findById(id).orElseThrow(() -> new NotFoundException("存储配置不存在"));
+        return toDTO(cfg);
+    }
+
+    @Transactional
+    public FileStorageConfigDTO saveStorageConfig(SaveFileStorageConfigRequest req){
+        // 基础校验：bucket 名称唯一由 DB 约束；bucketPurpose 可在这里做幂等逻辑（允许重复用途时可跳过）
+        // 校验连接存在
+        connectionRepo.findById(req.getConnectionId()).orElseThrow(() -> new NotFoundException("关联连接不存在"));
+
+        FileStorageConfig entity;
+        if(req.getId()!=null){
+            entity = configRepo.findById(req.getId()).orElseThrow(() -> new NotFoundException("存储配置不存在"));
+        } else {
+            entity = new FileStorageConfig();
+        }
+        entity.setBucketName(req.getBucketName());
+        entity.setBucketPurpose(req.getBucketPurpose());
+        entity.setConnectionId(req.getConnectionId());
+        entity.setBasePath(req.getBasePath());
+        entity.setMaxFileSize(req.getMaxFileSize());
+        entity.setAllowedExtensions(toJsonArray(req.getAllowedExtensions()));
+        entity.setAllowedMimeTypes(toJsonArray(req.getAllowedMimeTypes()));
+        entity.setRetentionDays(req.getRetentionDays());
+        entity.setAutoCleanup(req.getAutoCleanup());
+        entity.setEnabled(req.getEnabled());
+        FileStorageConfig saved = configRepo.save(entity);
+        return toDTO(saved);
+    }
+
+    @Transactional
+    public FileStorageConfigDTO enableStorageConfig(Integer id, boolean enabled){
+        FileStorageConfig cfg = configRepo.findById(id).orElseThrow(() -> new NotFoundException("存储配置不存在"));
+        cfg.setEnabled(enabled);
+        FileStorageConfig saved = configRepo.save(cfg);
+        return toDTO(saved);
+    }
+
+    @Transactional
+    public void deleteStorageConfig(Integer id){
+        FileStorageConfig cfg = configRepo.findById(id).orElseThrow(() -> new NotFoundException("存储配置不存在"));
+        long cnt = fileRepo.countByStorageConfigId(id);
+        if(cnt > 0){
+            throw new BadRequestException("存在关联文件，禁止删除 (count="+cnt+")");
+        }
+        configRepo.delete(cfg);
+    }
+
+    private String toJsonArray(List<String> list){
+        if(list==null || list.isEmpty()) return "[]"; // 保持 NOT NULL 约束
+        // 去重 + 小写 + 过滤空
+        LinkedHashSet<String> set = new LinkedHashSet<>();
+        for(String s: list){
+            if(s==null) continue;
+            String v = s.trim().toLowerCase();
+            if(!v.isEmpty()) set.add(v);
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append('[');
+        boolean first = true;
+        for(String v: set){
+            if(!first) sb.append(',');
+            sb.append('"').append(v.replace("\"","\\\"")).append('"');
+            first = false;
+        }
+        sb.append(']');
+        return sb.toString();
+    }
+
+    private FileStorageConfigDTO toDTO(FileStorageConfig cfg){
+        FileStorageConfigDTO dto = new FileStorageConfigDTO();
+        dto.setId(cfg.getId());
+        dto.setBucketName(cfg.getBucketName());
+        dto.setBucketPurpose(cfg.getBucketPurpose());
+        dto.setConnectionId(cfg.getConnectionId());
+        dto.setBasePath(cfg.getBasePath());
+        dto.setMaxFileSize(cfg.getMaxFileSize());
+        dto.setAllowedExtensions(new ArrayList<>(parseJsonArray(cfg.getAllowedExtensions())));
+        dto.setAllowedMimeTypes(new ArrayList<>(parseJsonArray(cfg.getAllowedMimeTypes())));
+        dto.setRetentionDays(cfg.getRetentionDays());
+        dto.setAutoCleanup(cfg.getAutoCleanup());
+        dto.setEnabled(cfg.getEnabled());
+        dto.setCreatedAt(cfg.getCreatedAt());
+        dto.setUpdatedAt(cfg.getUpdatedAt());
+        return dto;
+    }
 }

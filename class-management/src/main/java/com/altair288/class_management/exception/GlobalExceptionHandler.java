@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+// NOTE: 已整合 ObjectStorage 模块的异常处理，不再需要其子包内的局部 GlobalExceptionHandler。
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
