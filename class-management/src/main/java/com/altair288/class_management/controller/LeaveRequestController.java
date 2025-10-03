@@ -177,6 +177,17 @@ public class LeaveRequestController {
         return ResponseEntity.ok().build();
     }
 
+    // 撤销（取消）待审批请假申请：用于前端上传附件失败时的整体回滚
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<LeaveRequest> cancel(@PathVariable Integer id) {
+        try {
+            LeaveRequest lr = leaveRequestService.cancelPendingLeaveRequest(id);
+            return ResponseEntity.ok(lr);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     // 兼容旧版本API - 保持向后兼容
     @PostMapping("/submit")
     public ResponseEntity<LeaveRequest> submitLeave(@RequestBody LeaveRequest leaveRequest) {

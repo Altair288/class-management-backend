@@ -2,6 +2,7 @@ package com.altair288.class_management.ObjectStorage.controller;
 
 import com.altair288.class_management.ObjectStorage.dto.*;
 import com.altair288.class_management.ObjectStorage.model.ObjectStorageConnection;
+import com.altair288.class_management.ObjectStorage.dto.BusinessPurposeInfo;
 import com.altair288.class_management.ObjectStorage.service.ObjectStorageService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,11 @@ public class ObjectStorageController {
     @PostMapping("/connections/{id}/test")
     public ConnectionDTO testConnection(@PathVariable Long id){
         return service.testConnection(id);
+    }
+
+    @DeleteMapping("/connections/{id}")
+    public void deleteConnection(@PathVariable Long id){
+        service.deleteConnection(id);
     }
 
     // ========== Upload Flow ==========
@@ -77,5 +83,17 @@ public class ObjectStorageController {
     @DeleteMapping("/storage-configs/{id}")
     public void deleteStorageConfig(@PathVariable Integer id){
         service.deleteStorageConfig(id);
+    }
+
+    // ========== Business Purposes (static suggestions) ==========
+    @GetMapping("/purposes")
+    public List<BusinessPurposeInfo> listBusinessPurposes(){
+        // 目前静态返回，可后续改为数据库 / 配置化
+        List<BusinessPurposeInfo> list = new ArrayList<>();
+        list.add(new BusinessPurposeInfo("LEAVE_ATTACHMENT", "请假附件", "学生请假申请上传的证明或补充材料", "LEAVE", true));
+        list.add(new BusinessPurposeInfo("USER_AVATAR", "用户头像", "平台用户个人头像文件", "USER", true));
+        list.add(new BusinessPurposeInfo("NOTICE_ATTACHMENT", "通知附件", "公告/通知的附件文件", "NOTICE", false));
+        list.add(new BusinessPurposeInfo("COMMON_TEMP", "临时文件", "通用临时占位文件（可定期清理）", "COMMON", false));
+        return list;
     }
 }

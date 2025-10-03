@@ -674,6 +674,29 @@ public class LeaveRequestService {
         return leaveRequestRepository.save(leaveRequest);
     }
 
+    /**
+     * 取消（撤销）一个仍处于“待审批”状态的请假申请：
+     * - 恢复已扣减的请假余额
+     * - 更新状态为“已撤销”
+     * 典型使用场景：前端先提交申请再批量上传附件，若附件上传过程中出现失败需要整体回滚。
+     */
+    @Transactional
+    public LeaveRequest cancelPendingLeaveRequest(Integer id) {
+        LeaveRequest lr = getById(id);
+        if (lr == null) {
+            throw new RuntimeException("请假申请不存在");
+        }
+        if (!"待审批".equals(lr.getStatus())) {
+            // 只有待审批才能撤销，其它状态忽略/抛错视业务需要，这里抛错便于前端感知
+            throw new RuntimeException("当前状态不允许撤销: " + lr.getStatus());
+        }
+        // 恢复余额（与拒绝逻辑一致）
+        restoreStudentLeaveBalance(lr);
+        lr.setStatus("已撤销");
+        lr.setUpdatedAt(new Date());
+        return leaveRequestRepository.save(lr);
+    }
+
     // 获取当前登录用户用于自动填充申请单的信息
     @Transactional(readOnly = true)
     public CurrentUserLeaveInfoDTO getCurrentUserLeaveInfo() {

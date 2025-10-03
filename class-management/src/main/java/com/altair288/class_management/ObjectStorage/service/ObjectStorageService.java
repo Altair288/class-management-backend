@@ -166,7 +166,10 @@ public class ObjectStorageService {
                 att.setLeaveRequestId(leaveId);
                 att.setFileObjectId(fo.getId());
                 att.setCreatedAt(new Date());
-                att.setCreatedBy(fo.getUploaderUserId());
+                // leave_attachment.created_by 外键指向 student(id)；
+                // uploaderUserId 可能是系统用户表的 ID，不一定等于 student.id，导致外键失败。
+                // 优先使用请假单的 studentId，若不存在则回退为 null（允许 DB nullable）。
+                att.setCreatedBy(lr.getStudentId());
                 leaveAttachmentRepository.save(att);
                 Integer cnt = lr.getAttachmentCount()==null?0:lr.getAttachmentCount();
                 lr.setAttachmentCount(cnt + 1);
@@ -426,5 +429,17 @@ public class ObjectStorageService {
         dto.setCreatedAt(cfg.getCreatedAt());
         dto.setUpdatedAt(cfg.getUpdatedAt());
         return dto;
+    }
+
+    // ============= Connection Management =============
+    public void deleteConnection(Long id){
+        ObjectStorageConnection conn = connectionRepo.findById(id)
+                .orElseThrow(() -> new NotFoundException("连接不存在"));
+        boolean referenced = configRepo.findAll().stream()
+                .anyMatch(c -> Objects.equals(c.getConnectionId(), id.intValue()));
+        if(referenced){
+            throw new BadRequestException("仍有关联的存储配置，禁止删除");
+        }
+        connectionRepo.delete(conn);
     }
 }
