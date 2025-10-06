@@ -1,6 +1,7 @@
 package com.altair288.class_management.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import java.util.Date;
 
 @Entity
@@ -10,6 +11,7 @@ public class Student {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    @NotBlank(message = "姓名不能为空")
     @Column(nullable = false)
     private String name;
 

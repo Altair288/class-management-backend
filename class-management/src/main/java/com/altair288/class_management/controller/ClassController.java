@@ -16,6 +16,7 @@ import com.altair288.class_management.service.StudentService;
 import com.altair288.class_management.service.TeacherService;
 import com.altair288.class_management.repository.DepartmentRepository;
 import org.springframework.http.ResponseEntity;
+import com.altair288.class_management.dto.ImportStudentsResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -178,8 +179,8 @@ public class ClassController {
     @PostMapping("/{classId}/import-students")
     public ResponseEntity<?> importStudents(@PathVariable Integer classId, @RequestParam("file") MultipartFile file) {
         try {
-            studentService.importStudentsFromExcel(classId, file);
-            return ResponseEntity.ok().build();
+            ImportStudentsResult result = studentService.importStudentsFromExcel(classId, file);
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("导入失败：" + e.getMessage());
         }

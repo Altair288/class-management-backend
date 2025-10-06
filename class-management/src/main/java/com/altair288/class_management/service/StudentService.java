@@ -13,6 +13,7 @@ import com.altair288.class_management.repository.StudentCreditRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.altair288.class_management.dto.ImportStudentsResult;
 import java.util.*;
 
 @Service
@@ -34,56 +35,95 @@ public class StudentService {
     private StudentLeaveBalanceService studentLeaveBalanceService;
 
     @Transactional
-    public void importStudentsFromExcel(Integer classId, MultipartFile file) throws Exception {
+    public ImportStudentsResult importStudentsFromExcel(Integer classId, MultipartFile file) throws Exception {
         Class clazz = classService.getById(classId);
         if (clazz == null)
             throw new IllegalArgumentException("班级不存在");
 
         Workbook workbook = WorkbookFactory.create(file.getInputStream());
         Sheet sheet = workbook.getSheetAt(0);
-
-        int rowNum = 0;
-        int studentSeq = getMaxStudentSeq(clazz); // 获取当前班级已有最大序号
+        ImportStudentsResult result = new ImportStudentsResult();
+        int rowNum = 0; // 真实 Excel 行号（0 为表头）
+        int studentSeq = getMaxStudentSeq(clazz); // 当前已有最大序号
         for (Row row : sheet) {
-            if (rowNum++ == 0)
-                continue; // 跳过表头
+            if (rowNum == 0) { // 表头
+                rowNum++;
+                continue;
+            }
+            // 读取
+            String nameRaw = getCellString(row.getCell(0));
+            String studentNoRaw = getCellString(row.getCell(1));
+            String phoneRaw = getCellString(row.getCell(2));
+            String emailRaw = getCellString(row.getCell(3));
 
-            String name = getCellString(row.getCell(0));
-            String studentNo = getCellString(row.getCell(1));
-            String phone = getCellString(row.getCell(2));
-            String email = getCellString(row.getCell(3));
+            // 判断是否全空
+            boolean allBlank = isBlank(nameRaw) && isBlank(studentNoRaw) && isBlank(phoneRaw) && isBlank(emailRaw);
+            if (allBlank) { rowNum++; continue; }
+            result.incProcessed();
 
-            // 自动生成学号
-            if (studentNo == null || studentNo.isBlank()) {
+            // 姓名校验（非空 & 非空白）
+            if (isBlank(nameRaw)) {
+                result.addRowError(rowNum+1, "姓名不能为空"); // +1 使其与 Excel 视觉行号对齐
+                rowNum++;
+                continue;
+            }
+            String name = nameRaw.trim();
+
+            // 学号处理
+            String studentNo = (studentNoRaw == null || studentNoRaw.isBlank()) ? null : studentNoRaw.trim();
+            if (studentNo == null) {
                 studentSeq++;
                 studentNo = generateStudentNo(clazz, studentSeq);
             }
 
-            // 检查学号唯一
+            // 学号唯一检查
             if (studentRepository.findByStudentNo(studentNo).isPresent()) {
-                continue; // 或收集错误信息
+                result.addDuplicate(studentNo);
+                rowNum++;
+                continue;
             }
 
-            // 创建学生
+            // 可选字段规范化：空白 -> null
+            String phone = normalizeOptional(phoneRaw);
+            String email = normalizeOptional(emailRaw);
+
+            // 唯一性（若填）预检查；忽略大小写可在此增强
+            if (phone != null && studentRepository.findByPhone(phone).isPresent()) {
+                result.addRowError(rowNum+1, "手机号重复:" + phone);
+                rowNum++;
+                continue;
+            }
+            if (email != null && studentRepository.findByEmail(email).isPresent()) {
+                result.addRowError(rowNum+1, "邮箱重复:" + email);
+                rowNum++;
+                continue;
+            }
+
+            // 创建学生记录
             Student student = new Student();
             student.setName(name);
             student.setPhone(phone);
             student.setEmail(email);
             student.setStudentNo(studentNo);
             student.setClazz(clazz);
-            // 使用本类 save()，触发“新增学生时初始化学分”的逻辑
             student = this.save(student);
 
-            // 创建用户
+            // 用户（使用学号作 username 更稳定；显示昵称使用 Student.name）
             User user = new User();
-            user.setUsername(name);
+            // 使用学号作为 username，确保姓名允许重复不会触发 user.username 唯一约束
+            user.setUsername(studentNo);
             user.setIdentityNo(studentNo);
-            user.setPassword("Sgz@" + studentNo); // 初始密码
+            user.setPassword("Sgz@" + studentNo);
             user.setUserType(User.UserType.STUDENT);
             user.setRelatedId(student.getId());
             userService.registerUser(user);
+
+            result.incSuccess();
+            rowNum++;
         }
+        result.setTotalRows(rowNum); // 表头 + 数据处理过的行数
         workbook.close();
+        return result;
     }
 
     private String getCellString(Cell cell) {
@@ -158,6 +198,9 @@ public class StudentService {
         return studentRepository.findByStudentNo(studentNo)
                 .orElseThrow(() -> new IllegalArgumentException("未找到该学号对应的学生"));
     }
+
+    private boolean isBlank(String s){ return s == null || s.trim().isEmpty(); }
+    private String normalizeOptional(String s){ return isBlank(s)? null : s.trim(); }
 
     @Transactional
     public Student save(Student student) {

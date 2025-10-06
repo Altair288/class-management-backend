@@ -2,10 +2,10 @@
 package com.altair288.class_management.service;
 
 import com.altair288.class_management.model.User;
+import com.altair288.class_management.repository.StudentRepository;
 import com.altair288.class_management.repository.UserRepository;
 import com.altair288.class_management.util.PasswordValidator;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import java.util.Date;
@@ -14,11 +14,12 @@ import java.util.Date;
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final StudentRepository studentRepository;
 
-    @Autowired
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, StudentRepository studentRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.studentRepository = studentRepository;
     }
 
     public User registerUser(User user) {
@@ -47,7 +48,20 @@ public class UserService {
 
     public User getUserByUsernameOrIdentityNo(String loginName) {
         return userRepository.findByUsernameOrIdentityNo(loginName)
-            .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+            .orElseGet(() -> {
+                // 如果不是学号/用户名命中，尝试按学生姓名精确匹配（仅当唯一时）
+                var students = studentRepository.findByName(loginName.trim());
+                if (students.size() == 1) {
+                    // 回到 identityNo/username 再查一次
+                    String studentNo = students.get(0).getStudentNo();
+                    return userRepository.findByUsernameOrIdentityNo(studentNo)
+                        .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+                } else if (students.size() > 1) {
+                    throw new IllegalArgumentException("存在重复姓名，请使用学号登录");
+                } else {
+                    throw new IllegalArgumentException("用户不存在");
+                }
+            });
     }
 
     public PasswordEncoder getPasswordEncoder() {
