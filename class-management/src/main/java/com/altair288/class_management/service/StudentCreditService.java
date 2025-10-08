@@ -6,14 +6,21 @@ import com.altair288.class_management.model.CreditItem;
 import com.altair288.class_management.model.Student;
 import com.altair288.class_management.model.StudentCredit;
 import com.altair288.class_management.repository.CreditItemRepository;
+import com.altair288.class_management.repository.UserRoleRepository;
+import com.altair288.class_management.model.Role;
 import com.altair288.class_management.repository.StudentCreditRepository;
 import com.altair288.class_management.repository.StudentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class StudentCreditService {
@@ -21,15 +28,80 @@ public class StudentCreditService {
     private final StudentCreditRepository studentCreditRepository;
     private final CreditItemRepository creditItemRepository;
     private final StudentEvaluationService evaluationService;
+    private final CreditChangeLogService creditChangeLogService;
+    private final com.altair288.class_management.repository.UserRepository userRepository;
+    private final UserRoleRepository userRoleRepository;
 
     public StudentCreditService(StudentRepository studentRepository,
                                 StudentCreditRepository studentCreditRepository,
                                 CreditItemRepository creditItemRepository,
-                                StudentEvaluationService evaluationService) {
+                                StudentEvaluationService evaluationService,
+                                CreditChangeLogService creditChangeLogService,
+                                com.altair288.class_management.repository.UserRepository userRepository,
+                                UserRoleRepository userRoleRepository) {
         this.studentRepository = studentRepository;
         this.studentCreditRepository = studentCreditRepository;
         this.creditItemRepository = creditItemRepository;
         this.evaluationService = evaluationService;
+        this.creditChangeLogService = creditChangeLogService;
+        this.userRepository = userRepository;
+        this.userRoleRepository = userRoleRepository;
+    }
+
+    // Helper to get operator snapshot（改进：优先从 user_role 获取系统角色代码快照，无前缀；为空再回退 authority / userType）
+    private OperatorSnapshot operator() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String username = auth != null ? auth.getName() : "anonymous";
+        Integer userId = null;
+        try {
+            boolean anonymous = (username == null || username.isBlank() || "anonymous".equalsIgnoreCase(username) || "anonymousUser".equalsIgnoreCase(username));
+            String lookup = anonymous ? "admin" : username;
+            var opt = userRepository.findByUsernameOrIdentityNo(lookup);
+            if (opt.isPresent()) {
+                var u = opt.get();
+                userId = u.getId();
+                if (anonymous) username = u.getUsername();
+            }
+        } catch (Exception ignored) {}
+
+        // 1) 从 user_role 取 role.code
+        String roleCodesCsv = "";
+        if (userId != null) {
+            try {
+                var userRoles = userRoleRepository.findByUserId(userId);
+                var codes = userRoles.stream()
+                        .map(ur -> ur.getRole() != null ? ur.getRole().getCode() : null)
+                        .filter(c -> c != null && !c.isBlank())
+                        .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+                if (!codes.isEmpty()) {
+                    roleCodesCsv = String.join(",", codes);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 2) 回退：若数据库角色为空，用 authorities（去掉 ROLE_ 前缀）
+        if (roleCodesCsv.isBlank() && auth != null && auth.getAuthorities() != null) {
+            var codes = auth.getAuthorities().stream().map(a -> {
+                String raw = a.getAuthority();
+                if (raw == null) return null;
+                return raw.startsWith("ROLE_") ? raw.substring(5) : raw;
+            }).filter(s -> s != null && !s.isBlank()).collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+            if (!codes.isEmpty()) roleCodesCsv = String.join(",", codes);
+        }
+
+        // 3) 再回退：若依旧为空，根据 userType 推断（ADMIN/TEACHER/STUDENT/PARENT），避免出现 USER
+        if ((roleCodesCsv == null || roleCodesCsv.isBlank()) && userId != null) {
+            var u = userRepository.findById(userId).orElse(null);
+            if (u != null && u.getUserType() != null) {
+                roleCodesCsv = switch (u.getUserType()) {
+                    case ADMIN -> Role.Codes.ADMIN;
+                    case TEACHER -> Role.Codes.TEACHER;
+                    case STUDENT -> Role.Codes.STUDENT;
+                    case PARENT -> Role.Codes.PARENT;
+                };
+            }
+        }
+        return new OperatorSnapshot(userId, username, roleCodesCsv);
     }
 
     public StudentCreditsDTO getTotalsForStudent(Integer studentId) {
@@ -53,9 +125,10 @@ public class StudentCreditService {
     }
 
     @Transactional
-    public void updateScore(Integer studentId, Integer creditItemId, Double delta) {
+    public void updateScore(Integer studentId, Integer creditItemId, Double delta, String reason) {
         if (delta == null || Objects.equals(delta, 0.0)) return;
         StudentCredit sc = studentCreditRepository.findByStudentAndItem(studentId, creditItemId);
+        double oldScore;
         if (sc == null) {
             Student s = studentRepository.findById(studentId).orElseThrow(() -> new IllegalArgumentException("学生不存在"));
             CreditItem item = creditItemRepository.findById(creditItemId).orElseThrow(() -> new IllegalArgumentException("项目不存在"));
@@ -64,14 +137,17 @@ public class StudentCreditService {
             sc.setCreditItem(item);
             sc.setScore(0.0);
         }
-        double newScore = sc.getScore() + delta;
+        oldScore = sc.getScore();
+        double newScore = oldScore + delta;
         Double max = sc.getCreditItem().getMaxScore();
         if (max != null && newScore > max) newScore = max;
         if (newScore < 0) newScore = 0;
         sc.setScore(newScore);
         studentCreditRepository.save(sc);
-    // recompute evaluation for this student
-    try { evaluationService.recomputeForStudent(studentId); } catch (Exception ignored) {}
+        try { evaluationService.recomputeForStudent(studentId); } catch (Exception ignored) {}
+        OperatorSnapshot op = operator();
+        creditChangeLogService.logChange(op.userId(), op.username(), op.roleCodesCsv(), sc, oldScore, newScore,
+                CreditChangeLogService.ActionType.DELTA, reason, null, null, false);
     }
 
     public List<StudentCreditItemDTO> listStudentItems(Integer studentId, String category) {
@@ -100,24 +176,29 @@ public class StudentCreditService {
     }
 
     @Transactional
-    public void setScore(Integer studentId, Integer creditItemId, Double value) {
+    public void setScore(Integer studentId, Integer creditItemId, Double value, String reason) {
         if (value == null) return;
         StudentCredit sc = studentCreditRepository.findByStudentAndItem(studentId, creditItemId);
+        double oldScore;
         if (sc == null) {
             Student s = studentRepository.findById(studentId).orElseThrow(() -> new IllegalArgumentException("学生不存在"));
             CreditItem item = creditItemRepository.findById(creditItemId).orElseThrow(() -> new IllegalArgumentException("项目不存在"));
             sc = new StudentCredit();
             sc.setStudent(s);
             sc.setCreditItem(item);
+            sc.setScore(0.0);
         }
+        oldScore = sc.getScore();
         double newScore = value;
         Double max = sc.getCreditItem().getMaxScore();
         if (max != null && newScore > max) newScore = max;
         if (newScore < 0) newScore = 0;
         sc.setScore(newScore);
         studentCreditRepository.save(sc);
-    // recompute evaluation for this student
-    try { evaluationService.recomputeForStudent(studentId); } catch (Exception ignored) {}
+        try { evaluationService.recomputeForStudent(studentId); } catch (Exception ignored) {}
+        OperatorSnapshot op = operator();
+        creditChangeLogService.logChange(op.userId(), op.username(), op.roleCodesCsv(), sc, oldScore, newScore,
+                CreditChangeLogService.ActionType.SET, reason, null, null, false);
     }
 
     // 批量聚合：向外暴露仓库聚合结果
@@ -151,40 +232,53 @@ public class StudentCreditService {
         String m = (mode == null || mode.isBlank()) ? "reset" : mode.trim().toLowerCase();
         List<StudentCredit> list = studentCreditRepository.findAllByCreditItem_Id(itemId);
         int affected = 0;
+        List<Double> oldScores = new ArrayList<>(list.size());
+        List<Double> newScores = new ArrayList<>(list.size());
         if ("reset".equals(m)) {
             double init = item.getInitialScore() == null ? 0.0 : item.getInitialScore();
             for (StudentCredit sc : list) {
+                double old = sc.getScore();
                 double v = init;
                 Double max = item.getMaxScore();
                 if (max != null && v > max) v = max;
                 if (v < 0) v = 0;
-                if (!Objects.equals(sc.getScore(), v)) {
+                if (!Objects.equals(old, v)) {
                     sc.setScore(v);
                     affected++;
                 }
+                oldScores.add(old);
+                newScores.add(sc.getScore());
             }
             studentCreditRepository.saveAll(list);
-            // refresh evaluations
-            for (StudentCredit sc : list) {
-                try { evaluationService.recomputeForStudent(sc.getStudent().getId()); } catch (Exception ignored) {}
-            }
-            return affected;
         } else if ("clamp".equals(m)) {
             Double max = item.getMaxScore();
             if (max == null) return 0;
             for (StudentCredit sc : list) {
+                double old = sc.getScore();
                 if (sc.getScore() != null && sc.getScore() > max) {
                     sc.setScore(max);
                     affected++;
                 }
+                oldScores.add(old);
+                newScores.add(sc.getScore());
             }
             studentCreditRepository.saveAll(list);
-            for (StudentCredit sc : list) {
-                try { evaluationService.recomputeForStudent(sc.getStudent().getId()); } catch (Exception ignored) {}
-            }
-            return affected;
         } else {
             throw new IllegalArgumentException("不支持的模式: " + mode + "，可选 reset/clamp");
         }
+        for (StudentCredit sc : list) {
+            try { evaluationService.recomputeForStudent(sc.getStudent().getId()); } catch (Exception ignored) {}
+        }
+        if (affected > 0) {
+            OperatorSnapshot op = operator();
+            String batchId = UUID.randomUUID().toString();
+            creditChangeLogService.batchLog(op.userId(), op.username(), op.roleCodesCsv(), list, oldScores, newScores,
+                    "reset".equals(m) ? CreditChangeLogService.ActionType.RESET : CreditChangeLogService.ActionType.CLAMP,
+                    m + " applyItemRule", batchId);
+        }
+        return affected;
     }
+
+    // simple record for operator snapshot
+    public record OperatorSnapshot(Integer userId, String username, String roleCodesCsv) {}
 }

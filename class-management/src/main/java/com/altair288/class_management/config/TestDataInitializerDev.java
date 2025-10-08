@@ -208,6 +208,33 @@ public class TestDataInitializerDev {
             Student sWang5 = mkStudent("王五", "2024003", cls2024b);
             Student sZhao6 = mkStudent("赵六", "2024004", cls2024b);
 
+            // 为张三/李四/王五/赵六创建用户（若不存在）并绑定学生角色
+            java.util.function.Consumer<Student> ensureStudentUser = stu -> {
+                try {
+                    var existing = userRepository.findByUsernameOrIdentityNo(stu.getStudentNo());
+                    User u;
+                    if (existing.isPresent()) {
+                        u = existing.get();
+                    } else {
+                        u = new User(null);
+                        u.setUsername(stu.getName());
+                        u.setIdentityNo(stu.getStudentNo());
+                        u.setPassword(initialPassword);
+                        u.setUserType(User.UserType.STUDENT);
+                        u.setRelatedId(stu.getId());
+                        u = userService.registerUser(u);
+                    }
+                    // 赋予学生角色（幂等：底层若无重复约束需自行判重，这里简单尝试）
+                    try { userRoleService.assignRoleToUser(u.getId(), studentRole.getId()); } catch (Exception ignore) {}
+                } catch (Exception ex) {
+                    logger.warn("为学生 {} 创建或绑定用户失败: {}", stu.getStudentNo(), ex.getMessage());
+                }
+            };
+            ensureStudentUser.accept(sZhang3);
+            ensureStudentUser.accept(sLi4);
+            ensureStudentUser.accept(sWang5);
+            ensureStudentUser.accept(sZhao6);
+
             createCreditItemsIfAbsent();
             Integer deId = creditItemRepository.findAllByCategory("德").get(0).getId();
             Integer zhiId = creditItemRepository.findAllByCategory("智").get(0).getId();
@@ -215,29 +242,29 @@ public class TestDataInitializerDev {
             Integer meiId = creditItemRepository.findAllByCategory("美").get(0).getId();
             Integer laoId = creditItemRepository.findAllByCategory("劳").get(0).getId();
 
-            studentCreditService.setScore(sZhang3.getId(), deId, 85.0);
-            studentCreditService.setScore(sZhang3.getId(), zhiId, 92.0);
-            studentCreditService.setScore(sZhang3.getId(), tiId, 78.0);
-            studentCreditService.setScore(sZhang3.getId(), meiId, 88.0);
-            studentCreditService.setScore(sZhang3.getId(), laoId, 85.0);
+            studentCreditService.setScore(sZhang3.getId(), deId, 85.0, "初始化数据");
+            studentCreditService.setScore(sZhang3.getId(), zhiId, 92.0, "初始化数据");
+            studentCreditService.setScore(sZhang3.getId(), tiId, 78.0, "初始化数据");
+            studentCreditService.setScore(sZhang3.getId(), meiId, 88.0, "初始化数据");
+            studentCreditService.setScore(sZhang3.getId(), laoId, 85.0, "初始化数据");
 
-            studentCreditService.setScore(sLi4.getId(), deId, 75.0);
-            studentCreditService.setScore(sLi4.getId(), zhiId, 88.0);
-            studentCreditService.setScore(sLi4.getId(), tiId, 82.0);
-            studentCreditService.setScore(sLi4.getId(), meiId, 76.0);
-            studentCreditService.setScore(sLi4.getId(), laoId, 80.0);
+            studentCreditService.setScore(sLi4.getId(), deId, 75.0, "初始化数据");
+            studentCreditService.setScore(sLi4.getId(), zhiId, 88.0, "初始化数据");
+            studentCreditService.setScore(sLi4.getId(), tiId, 82.0, "初始化数据");
+            studentCreditService.setScore(sLi4.getId(), meiId, 76.0, "初始化数据");
+            studentCreditService.setScore(sLi4.getId(), laoId, 80.0, "初始化数据");
 
-            studentCreditService.setScore(sWang5.getId(), deId, 60.0);
-            studentCreditService.setScore(sWang5.getId(), zhiId, 70.0);
-            studentCreditService.setScore(sWang5.getId(), tiId, 65.0);
-            studentCreditService.setScore(sWang5.getId(), meiId, 58.0);
-            studentCreditService.setScore(sWang5.getId(), laoId, 62.0);
+            studentCreditService.setScore(sWang5.getId(), deId, 60.0, "初始化数据");
+            studentCreditService.setScore(sWang5.getId(), zhiId, 70.0, "初始化数据");
+            studentCreditService.setScore(sWang5.getId(), tiId, 65.0, "初始化数据");
+            studentCreditService.setScore(sWang5.getId(), meiId, 58.0, "初始化数据");
+            studentCreditService.setScore(sWang5.getId(), laoId, 62.0, "初始化数据");
 
-            studentCreditService.setScore(sZhao6.getId(), deId, 45.0);
-            studentCreditService.setScore(sZhao6.getId(), zhiId, 55.0);
-            studentCreditService.setScore(sZhao6.getId(), tiId, 50.0);
-            studentCreditService.setScore(sZhao6.getId(), meiId, 48.0);
-            studentCreditService.setScore(sZhao6.getId(), laoId, 52.0);
+            studentCreditService.setScore(sZhao6.getId(), deId, 45.0, "初始化数据");
+            studentCreditService.setScore(sZhao6.getId(), zhiId, 55.0, "初始化数据");
+            studentCreditService.setScore(sZhao6.getId(), tiId, 50.0, "初始化数据");
+            studentCreditService.setScore(sZhao6.getId(), meiId, 48.0, "初始化数据");
+            studentCreditService.setScore(sZhao6.getId(), laoId, 52.0, "初始化数据");
 
             LeaveTypeConfig sickLeaveConfig = ensureLeaveType("sick", "病假", 90, 10, true, true, "#388e3c",
                     "因病需要休息，需提供医疗证明");

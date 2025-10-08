@@ -9,9 +9,15 @@ import com.altair288.class_management.repository.StudentRepository;
 import com.altair288.class_management.repository.ClassRepository;
 import com.altair288.class_management.service.CreditItemService;
 import com.altair288.class_management.service.StudentCreditService;
+import com.altair288.class_management.service.CreditChangeLogService;
+import com.altair288.class_management.model.CreditChangeLog;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import com.altair288.class_management.service.StudentEvaluationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 import java.util.Map;
@@ -23,14 +29,16 @@ public class CreditsController {
     private final StudentCreditService studentCreditService;
     private final StudentRepository studentRepository;
     private final StudentEvaluationService evaluationService;
+    private final CreditChangeLogService creditChangeLogService;
     private final ClassRepository classRepository;
 
-    public CreditsController(CreditItemService creditItemService, StudentCreditService studentCreditService, StudentRepository studentRepository, StudentEvaluationService evaluationService, ClassRepository classRepository) {
+    public CreditsController(CreditItemService creditItemService, StudentCreditService studentCreditService, StudentRepository studentRepository, StudentEvaluationService evaluationService, ClassRepository classRepository, CreditChangeLogService creditChangeLogService) {
         this.creditItemService = creditItemService;
         this.studentCreditService = studentCreditService;
         this.studentRepository = studentRepository;
         this.evaluationService = evaluationService;
         this.classRepository = classRepository;
+        this.creditChangeLogService = creditChangeLogService;
     }
 
     // 列表（支持可选 category 过滤）
@@ -41,12 +49,14 @@ public class CreditsController {
 
     // 新增（与前端 POST /api/credits/items 对齐）
     @PostMapping("/items")
+    @PreAuthorize("@creditPermission.canApplyItemRule()")
     public ResponseEntity<CreditItemDTO> create(@RequestBody CreditItemDTO dto) {
         return ResponseEntity.ok(creditItemService.create(dto));
     }
 
     // 编辑（与前端 POST /api/credits/items/{id} 对齐）
     @PostMapping("/items/{id}")
+    @PreAuthorize("@creditPermission.canApplyItemRule()")
     public ResponseEntity<CreditItemDTO> update(@PathVariable Integer id, @RequestBody CreditItemDTO dto) {
         return ResponseEntity.ok(creditItemService.update(id, dto));
     }
@@ -119,24 +129,27 @@ public class CreditsController {
     }
 
     // 学生维度：对某项目增减分（delta 正负皆可）
-    public static class UpdateScoreRequest { public Integer creditItemId; public Double delta; }
+    public static class UpdateScoreRequest { public Integer creditItemId; public Double delta; public String reason; }
     @PostMapping("/students/{studentId}/update-score")
+    @PreAuthorize("@creditPermission.canEditStudent(#studentId)")
     public ResponseEntity<String> updateStudentScore(@PathVariable Integer studentId, @RequestBody UpdateScoreRequest req) {
-        studentCreditService.updateScore(studentId, req.creditItemId, req.delta);
+        studentCreditService.updateScore(studentId, req.creditItemId, req.delta, req.reason);
         return ResponseEntity.ok("OK");
     }
 
     // 学生维度：设置某项目的绝对分值
-    public static class SetScoreRequest { public Integer creditItemId; public Double value; }
+    public static class SetScoreRequest { public Integer creditItemId; public Double value; public String reason; }
     @PostMapping("/students/{studentId}/set-score")
+    @PreAuthorize("@creditPermission.canEditStudent(#studentId)")
     public ResponseEntity<String> setStudentScore(@PathVariable Integer studentId, @RequestBody SetScoreRequest req) {
-        studentCreditService.setScore(studentId, req.creditItemId, req.value);
+        studentCreditService.setScore(studentId, req.creditItemId, req.value, req.reason);
         return ResponseEntity.ok("OK");
     }
 
     // 将主项目的新规则应用到所有学生
     public static class ApplyRuleRequest { public String mode; }
     @PostMapping("/items/{itemId}/apply")
+    @PreAuthorize("@creditPermission.canApplyItemRule()")
     public ResponseEntity<Map<String, Object>> applyItemRule(@PathVariable Integer itemId, @RequestBody(required = false) ApplyRuleRequest req) {
         String mode = (req == null) ? null : req.mode;
         int affected = studentCreditService.applyItemRule(itemId, mode);
@@ -242,6 +255,32 @@ public class CreditsController {
         resp.put("avgLao", avgLao);
         resp.put("avgTotal", avgTotal);
         return ResponseEntity.ok(resp);
+    }
+
+    // 日志分页查询
+    // GET /api/credits/logs?studentId=&itemId=&operator=&actionType=&batchId=&from=&to=&page=0&size=20
+    @GetMapping("/logs")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER','CLASS_MONITOR')")
+    public ResponseEntity<Page<CreditChangeLog>> listLogs(@RequestParam(required = false) Integer studentId,
+                                                          @RequestParam(required = false) Integer itemId,
+                                                          @RequestParam(required = false, name = "operator") String operatorUsername,
+                                                          @RequestParam(required = false) String actionType,
+                                                          @RequestParam(required = false) String batchId,
+                                                          @RequestParam(required = false) String from,
+                                                          @RequestParam(required = false) String to,
+                                                          @RequestParam(defaultValue = "0") int page,
+                                                          @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(page, Math.min(size, 200));
+        java.time.Instant fromTime = null;
+        java.time.Instant toTime = null;
+        try {
+            if (from != null && !from.isEmpty()) fromTime = java.time.Instant.parse(from);
+            if (to != null && !to.isEmpty()) toTime = java.time.Instant.parse(to);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("时间格式需为 ISO-8601，如 2024-01-01T00:00:00Z");
+        }
+        Page<CreditChangeLog> result = creditChangeLogService.search(studentId, itemId, operatorUsername, actionType, batchId, fromTime, toTime, pageable);
+        return ResponseEntity.ok(result);
     }
 
     // 小工具：null as zero

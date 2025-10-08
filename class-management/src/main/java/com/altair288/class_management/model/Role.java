@@ -68,6 +68,7 @@ public class Role {
         public static final String GRADE_HEAD = "GRADE_HEAD";
         public static final String ACADEMIC_DIRECTOR = "ACADEMIC_DIRECTOR";
         public static final String PRINCIPAL = "PRINCIPAL";
+        public static final String CLASS_MONITOR = "CLASS_MONITOR"; // 班长（新增）
     }
 
     public Role() {}

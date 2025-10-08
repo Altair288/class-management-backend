@@ -8,6 +8,7 @@ VALUES
  ('TEACHER','教师','SYSTEM',1,20,'系统登录教师'),
  ('PARENT','家长','SYSTEM',1,30,'系统登录家长'),
  ('ADMIN','管理员','SYSTEM',1,40,'系统管理员'),
+ ('CLASS_MONITOR','班长','SYSTEM',1,50,'班级管理学生'),
  ('HOMEROOM','班主任','APPROVAL',1,100,'班级第一层审批'),
  ('DEPT_HEAD','系部主任','APPROVAL',2,110,'系部层审批'),
  ('GRADE_HEAD','年级主任','APPROVAL',3,120,'年级层审批'),
@@ -37,20 +38,6 @@ ON DUPLICATE KEY UPDATE
   `advance_days_required`=VALUES(`advance_days_required`),
   `color`=VALUES(`color`),
   `description`=VALUES(`description`);
-
--- MinIO bucket 配置
--- INSERT INTO `file_storage_config` (`bucket_name`, `bucket_purpose`, `max_file_size`, `allowed_extensions`, `allowed_mime_types`, `retention_days`, `auto_cleanup`)
--- VALUES
--- ('leave-attachments', '请假申请附件', 5242880, '[["pdf", "jpg", "jpeg", "png", "doc", "docx"]]', '[["application/pdf", "image/jpeg", "image/png", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]]', 1095, 0),
--- ('student-documents', '学生证明文件', 10485760, '[["pdf", "jpg", "jpeg", "png"]]', '[["application/pdf", "image/jpeg", "image/png"]]', 2190, 0),
--- ('system-backups', '系统备份文件', 1073741824, '[["zip", "sql", "tar", "gz"]]', '[["application/zip", "application/sql", "application/x-tar", "application/gzip"]]', 90, 1)
--- ON DUPLICATE KEY UPDATE
---   `bucket_purpose`=VALUES(`bucket_purpose`),
---   `max_file_size`=VALUES(`max_file_size`),
---   `allowed_extensions`=VALUES(`allowed_extensions`),
---   `allowed_mime_types`=VALUES(`allowed_mime_types`),
---   `retention_days`=VALUES(`retention_days`),
---   `auto_cleanup`=VALUES(`auto_cleanup`);
 
 -- 审批流程模板
 INSERT INTO `approval_workflow` (`workflow_name`, `workflow_code`, `description`)

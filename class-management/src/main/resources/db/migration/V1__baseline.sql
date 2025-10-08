@@ -610,3 +610,39 @@ CREATE TABLE IF NOT EXISTS `notification_template` (
   UNIQUE KEY `uk_code_channel_active` (`code`,`channel`,`version`),
   KEY `idx_code_status` (`code`,`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- =============================================================
+-- 学分变动日志表：记录所有对 student_credit 的写操作（增减/设置/批量规则应用）
+-- action_type 约定：DELTA(增减) / SET(绝对设值) / RESET(批量重置) / CLAMP(批量压帽) / INIT(初始插入)
+-- 为追溯方便冗余存储学生与项目的名称/类别；batch_id 用于批量操作归组；reason 可为空
+-- =============================================================
+CREATE TABLE IF NOT EXISTS `credit_change_log` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '日志ID',
+  `operator_user_id` INT NOT NULL COMMENT '操作者用户ID',
+  `operator_username` VARCHAR(100) NOT NULL COMMENT '操作者用户名快照',
+  `operator_role_codes` VARCHAR(200) DEFAULT NULL COMMENT '操作者角色代码(逗号分隔快照)',
+  `student_id` INT NOT NULL COMMENT '被操作学生ID',
+  `student_no` VARCHAR(20) DEFAULT NULL COMMENT '学生学号快照',
+  `student_name` VARCHAR(50) DEFAULT NULL COMMENT '学生姓名快照',
+  `credit_item_id` INT DEFAULT NULL COMMENT '主项目ID（某些系统级操作可为空）',
+  `category` ENUM('德','智','体','美','劳') DEFAULT NULL COMMENT '类别快照',
+  `item_name` VARCHAR(100) DEFAULT NULL COMMENT '项目名称快照',
+  `old_score` DECIMAL(7,2) DEFAULT NULL COMMENT '旧分',
+  `new_score` DECIMAL(7,2) DEFAULT NULL COMMENT '新分',
+  `delta` DECIMAL(7,2) DEFAULT NULL COMMENT '差值 = new - old',
+  `action_type` VARCHAR(20) NOT NULL COMMENT '动作类型',
+  `reason` VARCHAR(255) DEFAULT NULL COMMENT '操作原因/备注',
+  `batch_id` VARCHAR(64) DEFAULT NULL COMMENT '批次ID（批量操作归组）',
+  `request_id` VARCHAR(64) DEFAULT NULL COMMENT '请求ID(可用于链路追踪)',
+  `rollback_flag` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否为回滚生成的记录',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_student_time` (`student_id`, `created_at`),
+  KEY `idx_item_time` (`credit_item_id`, `created_at`),
+  KEY `idx_batch` (`batch_id`),
+  KEY `idx_operator_time` (`operator_user_id`, `created_at`),
+  CONSTRAINT `fk_ccl_operator` FOREIGN KEY (`operator_user_id`) REFERENCES `user`(`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_ccl_student` FOREIGN KEY (`student_id`) REFERENCES `student`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ccl_item` FOREIGN KEY (`credit_item_id`) REFERENCES `credit_item`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
