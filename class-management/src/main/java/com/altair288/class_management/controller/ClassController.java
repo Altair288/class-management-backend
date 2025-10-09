@@ -44,14 +44,16 @@ public class ClassController {
     public ResponseEntity<List<ClassInfoDTO>> getAllClasses() {
         List<Class> classes = classService.findAll();
         List<ClassInfoDTO> result = classes.stream().map(c -> {
-            String teacherName = c.getTeacher() != null ? c.getTeacher().getName() : null;
+        String teacherName = c.getTeacher() != null ? c.getTeacher().getName() : null;
+        Integer teacherId = c.getTeacher() != null ? c.getTeacher().getId() : null;
             // createdAt 类型转换
             Timestamp createdAt = c.getCreatedAt() == null ? null : new Timestamp(c.getCreatedAt().getTime());
             return new ClassInfoDTO(
                     c.getId(),
                     c.getName(),
                     c.getGrade(), // 新增
-                    teacherName,
+            teacherName,
+            teacherId,
                     createdAt);
         }).toList();
         return ResponseEntity.ok(result);

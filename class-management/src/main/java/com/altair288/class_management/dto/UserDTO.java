@@ -10,6 +10,8 @@ public class UserDTO {
     private Boolean classMonitor;
     // 若是班长，其所负责的班级ID（基于其自身 student.clazz.id）
     private Integer monitorClassId;
+    // 关联实体 ID：学生->studentId, 老师->teacherId, 家长->parentId（用于前端权限判断）
+    private Integer relatedId;
 
     public UserDTO() {}
 
@@ -31,4 +33,6 @@ public class UserDTO {
     public void setClassMonitor(Boolean classMonitor) { this.classMonitor = classMonitor; }
     public Integer getMonitorClassId() { return monitorClassId; }
     public void setMonitorClassId(Integer monitorClassId) { this.monitorClassId = monitorClassId; }
+    public Integer getRelatedId() { return relatedId; }
+    public void setRelatedId(Integer relatedId) { this.relatedId = relatedId; }
 }

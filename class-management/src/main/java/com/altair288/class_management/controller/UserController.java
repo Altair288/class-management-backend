@@ -251,6 +251,7 @@ public class UserController {
     // ========== 内部工具方法：构建含班长标记的 UserDTO ==========
     private UserDTO buildUserDTOWithMonitorInfo(User user) {
         UserDTO dto = new UserDTO(user.getId(), user.getUsername(), user.getUserType());
+        try { dto.setRelatedId(user.getRelatedId()); } catch (Exception ignored) {}
         try {
             if (user.getUserType() == User.UserType.STUDENT) {
                 // 判断是否拥有 CLASS_MONITOR 角色

@@ -5,13 +5,15 @@ public class ClassInfoDTO {
     private String name;
     private String grade; // 新增
     private String teacherName;
+    private Integer teacherId; // 新增：班主任ID
     private java.sql.Timestamp createdAt;
 
-    public ClassInfoDTO(Integer id, String name, String grade, String teacherName, java.sql.Timestamp createdAt) {
+    public ClassInfoDTO(Integer id, String name, String grade, String teacherName, Integer teacherId, java.sql.Timestamp createdAt) {
         this.id = id;
         this.name = name;
         this.grade = grade;
         this.teacherName = teacherName;
+        this.teacherId = teacherId;
         this.createdAt = createdAt;
     }
 
@@ -43,9 +45,9 @@ public class ClassInfoDTO {
         return teacherName;
     }
 
-    public void setTeacherName(String teacherName) {
-        this.teacherName = teacherName;
-    }
+    public void setTeacherName(String teacherName) { this.teacherName = teacherName; }
+    public Integer getTeacherId() { return teacherId; }
+    public void setTeacherId(Integer teacherId) { this.teacherId = teacherId; }
 
     public java.sql.Timestamp getCreatedAt() {
         return createdAt;
