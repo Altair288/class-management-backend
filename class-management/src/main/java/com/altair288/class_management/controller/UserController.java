@@ -58,11 +58,7 @@ public class UserController {
             if (!userService.getPasswordEncoder().matches(loginRequest.getPassword(), user.getPassword())) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("密码错误");
             }
-            UserDTO userDTO = new UserDTO(
-                user.getId(),
-                user.getUsername(),
-                user.getUserType()
-            );
+            UserDTO userDTO = buildUserDTOWithMonitorInfo(user);
             return ResponseEntity.ok(userDTO);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -221,22 +217,14 @@ public class UserController {
         // 获取当前登录用户的信息
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         User user = userService.getUserByUsernameOrIdentityNo(authentication.getName());
-        UserDTO userDTO = new UserDTO(
-            user.getId(),
-            user.getUsername(),
-            user.getUserType()
-        );
+        UserDTO userDTO = buildUserDTOWithMonitorInfo(user);
         return ResponseEntity.ok(userDTO);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<UserDTO> getUser(@PathVariable Integer id) {
         User user = userService.getUserById(id);
-        UserDTO userDTO = new UserDTO(
-            user.getId(),
-            user.getUsername(),
-            user.getUserType()
-        );
+        UserDTO userDTO = buildUserDTOWithMonitorInfo(user);
         return ResponseEntity.ok(userDTO);
     }
 
@@ -247,5 +235,29 @@ public class UserController {
             .map(c -> new ClassSimpleDTO(c.getId(), c.getName(), c.getGrade()))
             .toList();
         return ResponseEntity.ok(result);
+    }
+
+    // ========== 内部工具方法：构建含班长标记的 UserDTO ==========
+    private UserDTO buildUserDTOWithMonitorInfo(User user) {
+        UserDTO dto = new UserDTO(user.getId(), user.getUsername(), user.getUserType());
+        try {
+            if (user.getUserType() == User.UserType.STUDENT) {
+                // 判断是否拥有 CLASS_MONITOR 角色
+                boolean isMonitor = userService.userHasRoleCode(user.getId(), com.altair288.class_management.model.Role.Codes.CLASS_MONITOR);
+                dto.setClassMonitor(isMonitor);
+                if (isMonitor && user.getRelatedId() != null) {
+                    // 取该学生班级ID
+                    var student = studentService.getStudentById(user.getRelatedId());
+                    if (student != null && student.getClazz() != null) {
+                        dto.setMonitorClassId(student.getClazz().getId());
+                    }
+                }
+            } else {
+                dto.setClassMonitor(false);
+            }
+        } catch (Exception ignored) {
+            // 出现异常不影响主流程
+        }
+        return dto;
     }
 }

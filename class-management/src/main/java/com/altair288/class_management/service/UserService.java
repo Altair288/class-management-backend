@@ -4,6 +4,8 @@ package com.altair288.class_management.service;
 import com.altair288.class_management.model.User;
 import com.altair288.class_management.repository.StudentRepository;
 import com.altair288.class_management.repository.UserRepository;
+import com.altair288.class_management.repository.UserRoleRepository;
+import com.altair288.class_management.model.UserRole;
 import com.altair288.class_management.util.PasswordValidator;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,11 +17,14 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final StudentRepository studentRepository;
+    private final UserRoleRepository userRoleRepository;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, StudentRepository studentRepository) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, StudentRepository studentRepository,
+                       UserRoleRepository userRoleRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.studentRepository = studentRepository;
+        this.userRoleRepository = userRoleRepository;
     }
 
     public User registerUser(User user) {
@@ -66,5 +71,14 @@ public class UserService {
 
     public PasswordEncoder getPasswordEncoder() {
         return passwordEncoder;
+    }
+
+    // 判断用户是否拥有指定角色代码
+    public boolean userHasRoleCode(Integer userId, String roleCode) {
+        if (userId == null || roleCode == null) return false;
+        return userRoleRepository.findByUserId(userId).stream()
+                .map(UserRole::getRole)
+                .filter(r -> r != null && r.getCode() != null)
+                .anyMatch(r -> roleCode.equals(r.getCode()));
     }
 }
