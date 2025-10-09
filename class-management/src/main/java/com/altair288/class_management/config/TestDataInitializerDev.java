@@ -139,7 +139,7 @@ public class TestDataInitializerDev {
                 teacherUserMap.put(t.getId(), u);
             }
 
-            User studentUser1 = registerStudentUser(student1, initialPassword);
+            registerStudentUser(student1, initialPassword);
             User studentUser = registerStudentUser(student, initialPassword);
 
             User parentUser = new User(null);

@@ -11,6 +11,7 @@ import com.altair288.class_management.repository.StudentRepository;
 import com.altair288.class_management.repository.CreditItemRepository;
 import com.altair288.class_management.repository.StudentCreditRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.altair288.class_management.model.Role;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.altair288.class_management.dto.ImportStudentsResult;
@@ -33,6 +34,11 @@ public class StudentService {
 
     @Autowired
     private StudentLeaveBalanceService studentLeaveBalanceService;
+
+    @Autowired
+    private RoleService roleService;
+    @Autowired
+    private UserRoleService userRoleService;
 
     @Transactional
     public ImportStudentsResult importStudentsFromExcel(Integer classId, MultipartFile file) throws Exception {
@@ -116,7 +122,12 @@ public class StudentService {
             user.setPassword("Sgz@" + studentNo);
             user.setUserType(User.UserType.STUDENT);
             user.setRelatedId(student.getId());
-            userService.registerUser(user);
+            User savedUser = userService.registerUser(user);
+            // 赋予 STUDENT 角色（忽略已存在异常）
+            try {
+                Role studentRole = roleService.getByCode(Role.Codes.STUDENT);
+                userRoleService.assignRoleToUser(savedUser.getId(), studentRole.getId());
+            } catch (Exception ignored) {}
 
             result.incSuccess();
             rowNum++;

@@ -17,9 +17,11 @@ import com.altair288.class_management.service.StudentService;
 import com.altair288.class_management.service.TeacherService;
 import com.altair288.class_management.service.ParentService;
 import com.altair288.class_management.service.ClassService;
+import com.altair288.class_management.service.RoleService;
+import com.altair288.class_management.service.UserRoleService;
+import com.altair288.class_management.model.Role;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -34,20 +36,23 @@ import java.util.List;
 @RequestMapping("/api/users")
 public class UserController {
     private final UserService userService;
-    private final AuthenticationManager authenticationManager;
     private final StudentService studentService;
     private final TeacherService teacherService;
     private final ParentService parentService;
     private final ClassService classService;
+    private final RoleService roleService;
+    private final UserRoleService userRoleService;
 
-    public UserController(UserService userService, AuthenticationManager authenticationManager, StudentService studentService, 
-                          TeacherService teacherService, ParentService parentService, ClassService classService) {
+    public UserController(UserService userService, StudentService studentService, 
+                          TeacherService teacherService, ParentService parentService, ClassService classService,
+                          RoleService roleService, UserRoleService userRoleService) {
         this.userService = userService;
-        this.authenticationManager = authenticationManager; // Initialize authenticationManager
         this.studentService = studentService; // Initialize studentService
         this.teacherService = teacherService; // Initialize teacherService
         this.parentService = parentService; // Initialize parentService
         this.classService = classService; // Initialize classService
+        this.roleService = roleService;
+        this.userRoleService = userRoleService;
     }
     
     @PostMapping("/login")
@@ -97,11 +102,13 @@ public class UserController {
             user.setRelatedId(student.getId());
             User registeredUser = userService.registerUser(user);
 
-            UserDTO userDTO = new UserDTO(
-                registeredUser.getId(),
-                registeredUser.getUsername(),
-                registeredUser.getUserType()
-            );
+            // 赋予学生基础角色（若未已有）
+            try {
+                Role studentRole = roleService.getByCode(Role.Codes.STUDENT);
+                userRoleService.assignRoleToUser(registeredUser.getId(), studentRole.getId());
+            } catch (Exception ignored) {}
+
+            UserDTO userDTO = new UserDTO(registeredUser.getId(), registeredUser.getUsername(), registeredUser.getUserType());
             return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
         } catch (IllegalArgumentException e) {
             throw e; // 直接抛出异常，让全局异常处理器处理
@@ -132,11 +139,13 @@ public class UserController {
             user.setRelatedId(teacher.getId());
             User registeredUser = userService.registerUser(user);
 
-            UserDTO userDTO = new UserDTO(
-                registeredUser.getId(),
-                registeredUser.getUsername(),
-                registeredUser.getUserType()
-            );
+            // 赋予教师基础角色
+            try {
+                Role teacherRole = roleService.getByCode(Role.Codes.TEACHER);
+                userRoleService.assignRoleToUser(registeredUser.getId(), teacherRole.getId());
+            } catch (Exception ignored) {}
+
+            UserDTO userDTO = new UserDTO(registeredUser.getId(), registeredUser.getUsername(), registeredUser.getUserType());
             return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
         } catch (IllegalArgumentException e) {
             throw e; // 直接抛出异常，让全局异常处理器处理
@@ -166,11 +175,13 @@ public class UserController {
             user.setRelatedId(parent.getId());
             User registeredUser = userService.registerUser(user);
 
-            UserDTO userDTO = new UserDTO(
-                registeredUser.getId(),
-                registeredUser.getUsername(),
-                registeredUser.getUserType()
-            );
+            // 赋予家长基础角色
+            try {
+                Role parentRole = roleService.getByCode(Role.Codes.PARENT);
+                userRoleService.assignRoleToUser(registeredUser.getId(), parentRole.getId());
+            } catch (Exception ignored) {}
+
+            UserDTO userDTO = new UserDTO(registeredUser.getId(), registeredUser.getUsername(), registeredUser.getUserType());
             return new ResponseEntity<>(userDTO, HttpStatus.CREATED);
         } catch (IllegalArgumentException e) {
             throw e; // 直接抛出异常，让全局异常处理器处理
