@@ -12,6 +12,9 @@ public class UserDTO {
     private Integer monitorClassId;
     // 关联实体 ID：学生->studentId, 老师->teacherId, 家长->parentId（用于前端权限判断）
     private Integer relatedId;
+    // 联系方式（从关联实体派生，可为空）
+    private String phone;
+    private String email;
 
     public UserDTO() {}
 
@@ -35,4 +38,8 @@ public class UserDTO {
     public void setMonitorClassId(Integer monitorClassId) { this.monitorClassId = monitorClassId; }
     public Integer getRelatedId() { return relatedId; }
     public void setRelatedId(Integer relatedId) { this.relatedId = relatedId; }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 }
