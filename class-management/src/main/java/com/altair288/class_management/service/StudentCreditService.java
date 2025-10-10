@@ -51,16 +51,37 @@ public class StudentCreditService {
     // Helper to get operator snapshot（改进：优先从 user_role 获取系统角色代码快照，无前缀；为空再回退 authority / userType）
     private OperatorSnapshot operator() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = auth != null ? auth.getName() : "anonymous";
+        String loginName = auth != null ? auth.getName() : "anonymous"; // 登录标识（现在可能是学号）
+        String displayName = loginName; // 真实姓名（后续解析）
         Integer userId = null;
         try {
-            boolean anonymous = (username == null || username.isBlank() || "anonymous".equalsIgnoreCase(username) || "anonymousUser".equalsIgnoreCase(username));
-            String lookup = anonymous ? "admin" : username;
+            boolean anonymous = (loginName == null || loginName.isBlank() || "anonymous".equalsIgnoreCase(loginName) || "anonymousUser".equalsIgnoreCase(loginName));
+            String lookup = anonymous ? "admin" : loginName;
             var opt = userRepository.findByUsernameOrIdentityNo(lookup);
             if (opt.isPresent()) {
                 var u = opt.get();
                 userId = u.getId();
-                if (anonymous) username = u.getUsername();
+                if (anonymous) loginName = u.getIdentityNo() != null ? u.getIdentityNo() : u.getUsername();
+                // 解析真实姓名：优先关联实体，其次 username 字段
+                try {
+                    if (u.getUserType() != null && u.getRelatedId() != null) {
+                        switch (u.getUserType()) {
+                            case STUDENT -> {
+                                var st = studentRepository.findById(u.getRelatedId()).orElse(null);
+                                if (st != null && st.getName() != null) displayName = st.getName();
+                            }
+                            case TEACHER -> {
+                                // teacherRepository 不在本服务中，暂时使用 user.username 作为 teacher 名称，如需严格可注入 TeacherRepository
+                                displayName = u.getUsername();
+                            }
+                            case PARENT -> displayName = u.getUsername();
+                            case ADMIN -> displayName = u.getUsername();
+                        }
+                    } else if (u.getUsername() != null) {
+                        displayName = u.getUsername();
+                    }
+                } catch (Exception ignored) {}
+                if (displayName == null || displayName.isBlank()) displayName = loginName;
             }
         } catch (Exception ignored) {}
 
@@ -101,7 +122,7 @@ public class StudentCreditService {
                 };
             }
         }
-        return new OperatorSnapshot(userId, username, roleCodesCsv);
+        return new OperatorSnapshot(userId, loginName, displayName, roleCodesCsv);
     }
 
     public StudentCreditsDTO getTotalsForStudent(Integer studentId) {
@@ -146,7 +167,7 @@ public class StudentCreditService {
         studentCreditRepository.save(sc);
         try { evaluationService.recomputeForStudent(studentId); } catch (Exception ignored) {}
         OperatorSnapshot op = operator();
-        creditChangeLogService.logChange(op.userId(), op.username(), op.roleCodesCsv(), sc, oldScore, newScore,
+    creditChangeLogService.logChange(op.userId(), op.loginName(), op.displayName(), op.roleCodesCsv(), sc, oldScore, newScore,
                 CreditChangeLogService.ActionType.DELTA, reason, null, null, false);
     }
 
@@ -197,7 +218,7 @@ public class StudentCreditService {
         studentCreditRepository.save(sc);
         try { evaluationService.recomputeForStudent(studentId); } catch (Exception ignored) {}
         OperatorSnapshot op = operator();
-        creditChangeLogService.logChange(op.userId(), op.username(), op.roleCodesCsv(), sc, oldScore, newScore,
+    creditChangeLogService.logChange(op.userId(), op.loginName(), op.displayName(), op.roleCodesCsv(), sc, oldScore, newScore,
                 CreditChangeLogService.ActionType.SET, reason, null, null, false);
     }
 
@@ -272,7 +293,7 @@ public class StudentCreditService {
         if (affected > 0) {
             OperatorSnapshot op = operator();
             String batchId = UUID.randomUUID().toString();
-            creditChangeLogService.batchLog(op.userId(), op.username(), op.roleCodesCsv(), list, oldScores, newScores,
+            creditChangeLogService.batchLog(op.userId(), op.loginName(), op.displayName(), op.roleCodesCsv(), list, oldScores, newScores,
                     "reset".equals(m) ? CreditChangeLogService.ActionType.RESET : CreditChangeLogService.ActionType.CLAMP,
                     m + " applyItemRule", batchId);
         }
@@ -280,5 +301,5 @@ public class StudentCreditService {
     }
 
     // simple record for operator snapshot
-    public record OperatorSnapshot(Integer userId, String username, String roleCodesCsv) {}
+    public record OperatorSnapshot(Integer userId, String loginName, String displayName, String roleCodesCsv) {}
 }

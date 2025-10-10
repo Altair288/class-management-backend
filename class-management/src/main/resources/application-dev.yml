@@ -17,10 +17,24 @@ spring:
     init:
       mode: never # 彻底避免 schema.sql
 
+# logging:
+#   level:
+#     root: INFO
+#     org:
+#       hibernate:
+#         SQL: DEBUG
+
 logging:
   level:
-    root: INFO
+    com:
+      altair288:
+        class_management:
+          config:
+            LoggingAccessDeniedHandler: DEBUG
+            SseAccessDeniedHandler: DEBUG
     org:
+      springframework:
+        security: DEBUG
       hibernate:
         SQL: DEBUG
 

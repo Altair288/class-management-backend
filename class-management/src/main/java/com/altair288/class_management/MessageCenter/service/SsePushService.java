@@ -32,7 +32,8 @@ public class SsePushService {
         return t;
     });
     private final Map<SseEmitter, ScheduledFuture<?>> heartbeatTasks = new ConcurrentHashMap<>();
-    private static final long HEARTBEAT_INTERVAL_SECONDS = 30; // 可按需调整
+    private static final long HEARTBEAT_INTERVAL_SECONDS = 30; // 常规心跳间隔
+    private static final long HEARTBEAT_INITIAL_DELAY_SECONDS = 5; // 首次心跳提前，帮助前端快速确认活性
 
     public SsePushService() {}
 
@@ -42,12 +43,24 @@ public class SsePushService {
         if (list == null) {
             list = new CopyOnWriteArrayList<>();
             connections.put(userId, list);
+        } else if (!list.isEmpty()) {
+            // 强制只保持一个活动连接：关闭现有全部
+            for (SseEmitter old : list) {
+                try { complete(userId, old); } catch (Exception ignored) {}
+            }
+            list.clear();
         }
         list.add(emitter);
-        emitter.onTimeout(() -> complete(userId, emitter));
-        emitter.onCompletion(() -> complete(userId, emitter));
+        emitter.onTimeout(() -> {
+            if (log.isDebugEnabled()) log.debug("[SSE] timeout userId={} emitter={}", userId, System.identityHashCode(emitter));
+            complete(userId, emitter);
+        });
+        emitter.onCompletion(() -> {
+            if (log.isDebugEnabled()) log.debug("[SSE] completion userId={} emitter={}", userId, System.identityHashCode(emitter));
+            complete(userId, emitter);
+        });
         if (log.isDebugEnabled()) {
-            log.debug("[SSE] connect userId={}, totalConnectionsForUser={}", userId, list.size());
+            log.debug("[SSE] connect userId={} activeNow={} emitterHash={} (dedup applied)", userId, list.size(), System.identityHashCode(emitter));
         }
         try {
             emitter.send(SseEmitter.event().name("init").data("ok"));
@@ -57,9 +70,10 @@ public class SsePushService {
             try {
                 emitter.send(SseEmitter.event().name("ping").data(System.currentTimeMillis()));
             } catch (Exception e) {
+                if (log.isDebugEnabled()) log.debug("[SSE] heartbeat send failed userId={} emitterHash={} err={}", userId, System.identityHashCode(emitter), e.getClass().getSimpleName());
                 complete(userId, emitter);
             }
-        }, HEARTBEAT_INTERVAL_SECONDS, HEARTBEAT_INTERVAL_SECONDS, TimeUnit.SECONDS);
+        }, HEARTBEAT_INITIAL_DELAY_SECONDS, HEARTBEAT_INTERVAL_SECONDS, TimeUnit.SECONDS);
         heartbeatTasks.put(emitter, hb);
         return emitter;
     }
@@ -114,6 +128,9 @@ public class SsePushService {
         }
         ScheduledFuture<?> hb = heartbeatTasks.remove(emitter);
         if (hb != null) hb.cancel(false);
+        if (log.isDebugEnabled()) {
+            log.debug("[SSE] cleanup userId={} emitterHash={} remaining={} ", userId, System.identityHashCode(emitter), list==null?0:list.size());
+        }
     }
     private boolean isAccessDenied(Throwable ex) {
         return ex instanceof AccessDeniedException || ex instanceof AuthorizationDeniedException;

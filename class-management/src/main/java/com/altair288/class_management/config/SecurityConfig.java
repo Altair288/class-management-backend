@@ -43,8 +43,11 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        AuthenticationEntryPoint sseEntryPoint = new SseAuthenticationEntryPoint();
-        SseAccessDeniedHandler sseDeniedHandler = new SseAccessDeniedHandler();
+    AuthenticationEntryPoint sseEntryPoint = new SseAuthenticationEntryPoint();
+    SseAccessDeniedHandler sseDeniedHandler = new SseAccessDeniedHandler();
+    boolean verbose = Boolean.parseBoolean(System.getProperty("security.debug.accessDenied", "true"));
+    boolean verboseStack = Boolean.parseBoolean(System.getProperty("security.debug.accessDenied.stack", "false"));
+    LoggingAccessDeniedHandler loggingHandler = new LoggingAccessDeniedHandler(sseDeniedHandler, verbose, verboseStack);
         http
             .csrf(csrf -> csrf.disable())
             .cors(Customizer.withDefaults())
@@ -63,7 +66,7 @@ public class SecurityConfig {
             )
             .exceptionHandling(eh -> eh
                 .authenticationEntryPoint(sseEntryPoint)
-                .accessDeniedHandler(sseDeniedHandler)
+                .accessDeniedHandler(loggingHandler)
             )
                 .formLogin(form -> form
                 .loginProcessingUrl("/api/users/login")

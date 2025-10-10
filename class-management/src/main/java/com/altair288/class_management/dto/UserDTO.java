@@ -5,6 +5,9 @@ import com.altair288.class_management.model.User.UserType;
 public class UserDTO {
     private Integer id;
     private String username;
+    // 新增：loginName (登录使用的标识 - 学号/工号/手机号)，displayName (展示姓名)
+    private String loginName;
+    private String displayName;
     private UserType userType;
     // 是否为班长（当前用户拥有 CLASS_MONITOR 角色）
     private Boolean classMonitor;
@@ -29,6 +32,10 @@ public class UserDTO {
     public void setId(Integer id) { this.id = id; }
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
+    public String getLoginName() { return loginName; }
+    public void setLoginName(String loginName) { this.loginName = loginName; }
+    public String getDisplayName() { return displayName; }
+    public void setDisplayName(String displayName) { this.displayName = displayName; }
     public UserType getUserType() { return userType; }
     public void setUserType(UserType userType) { this.userType = userType; }
 

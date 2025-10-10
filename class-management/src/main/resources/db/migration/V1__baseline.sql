@@ -619,7 +619,9 @@ CREATE TABLE IF NOT EXISTS `notification_template` (
 CREATE TABLE IF NOT EXISTS `credit_change_log` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '日志ID',
   `operator_user_id` INT NOT NULL COMMENT '操作者用户ID',
-  `operator_username` VARCHAR(100) NOT NULL COMMENT '操作者用户名快照',
+  `operator_login` VARCHAR(100) DEFAULT NULL COMMENT '操作者登录标识(学号/工号)',
+  `operator_display_name` VARCHAR(100) DEFAULT NULL COMMENT '操作者显示姓名',
+  `operator_username` VARCHAR(100) NOT NULL COMMENT '兼容旧版本的操作者名称(写入显示姓名)',
   `operator_role_codes` VARCHAR(200) DEFAULT NULL COMMENT '操作者角色代码(逗号分隔快照)',
   `student_id` INT NOT NULL COMMENT '被操作学生ID',
   `student_no` VARCHAR(20) DEFAULT NULL COMMENT '学生学号快照',

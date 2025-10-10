@@ -33,7 +33,23 @@ public class CreditChangeLogService {
 
     @Transactional
     public void logChange(Integer operatorUserId,
-                          String operatorUsername,
+                          String operatorDisplayName,
+                          String operatorRoleCodes,
+                          StudentCredit sc,
+                          double oldScore,
+                          double newScore,
+                          String actionType,
+                          String reason,
+                          String batchId,
+                          String requestId,
+                          boolean rollbackFlag) {
+        logChange(operatorUserId, null, operatorDisplayName, operatorRoleCodes, sc, oldScore, newScore, actionType, reason, batchId, requestId, rollbackFlag);
+    }
+
+    // 新重载：包含 operatorLogin
+    public void logChange(Integer operatorUserId,
+                          String operatorLogin,
+                          String operatorDisplayName,
                           String operatorRoleCodes,
                           StudentCredit sc,
                           double oldScore,
@@ -45,7 +61,9 @@ public class CreditChangeLogService {
                           boolean rollbackFlag) {
         CreditChangeLog log = new CreditChangeLog();
         log.setOperatorUserId(operatorUserId);
-        log.setOperatorUsername(operatorUsername);
+        log.setOperatorLogin(operatorLogin);
+        log.setOperatorDisplayName(operatorDisplayName);
+        log.setOperatorUsername(operatorDisplayName); // 兼容旧字段
         log.setOperatorRoleCodes(operatorRoleCodes);
         log.setStudentId(sc.getStudent().getId());
         log.setStudentNo(sc.getStudent().getStudentNo());
@@ -68,7 +86,20 @@ public class CreditChangeLogService {
 
     @Transactional
     public void batchLog(Integer operatorUserId,
-                         String operatorUsername,
+                         String operatorDisplayName,
+                         String operatorRoleCodes,
+                         Collection<StudentCredit> credits,
+                         List<Double> oldScores,
+                         List<Double> newScores,
+                         String actionType,
+                         String reason,
+                         String batchId) {
+        batchLog(operatorUserId, null, operatorDisplayName, operatorRoleCodes, credits, oldScores, newScores, actionType, reason, batchId);
+    }
+
+    public void batchLog(Integer operatorUserId,
+                         String operatorLogin,
+                         String operatorDisplayName,
                          String operatorRoleCodes,
                          Collection<StudentCredit> credits,
                          List<Double> oldScores,
@@ -80,7 +111,9 @@ public class CreditChangeLogService {
         for (StudentCredit sc : credits) {
             CreditChangeLog log = new CreditChangeLog();
             log.setOperatorUserId(operatorUserId);
-            log.setOperatorUsername(operatorUsername);
+            log.setOperatorLogin(operatorLogin);
+            log.setOperatorDisplayName(operatorDisplayName);
+            log.setOperatorUsername(operatorDisplayName);
             log.setOperatorRoleCodes(operatorRoleCodes);
             log.setStudentId(sc.getStudent().getId());
             log.setStudentNo(sc.getStudent().getStudentNo());

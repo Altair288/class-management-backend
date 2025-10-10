@@ -2,7 +2,15 @@ package com.altair288.class_management.MessageCenter.controller;
 
 import com.altair288.class_management.MessageCenter.service.SsePushService;
 import com.altair288.class_management.MessageCenter.service.NotificationService;
+import com.altair288.class_management.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -14,30 +22,58 @@ import java.util.Map;
 @RequestMapping("/api/notifications")
 public class NotificationStreamController {
 
+    private static final Logger log = LoggerFactory.getLogger(NotificationStreamController.class);
     private final SsePushService ssePushService;
     private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
-    public NotificationStreamController(SsePushService ssePushService, NotificationService notificationService) {
+    public NotificationStreamController(SsePushService ssePushService, NotificationService notificationService, UserRepository userRepository) {
         this.ssePushService = ssePushService;
         this.notificationService = notificationService;
+        this.userRepository = userRepository;
     }
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter stream(@RequestParam Integer userId) {
-        // TODO: 未来这里从认证主体中解析真实 userId，避免被伪造
-        SseEmitter emitter = ssePushService.connect(userId);
+    public SseEmitter stream(@RequestParam(required = false) Integer userIdIgnored) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth instanceof AnonymousAuthenticationToken || !auth.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated SSE access");
+        }
+        String principalName = auth.getName();
+        Integer tmpId = null;
         try {
-            // 延迟少量毫秒，等待前端 init 监听安装完成再发送 snapshot
+            var opt = userRepository.findByUsernameOrIdentityNo(principalName);
+            if (opt.isPresent()) {
+                tmpId = opt.get().getId();
+            } else {
+                try { tmpId = Integer.valueOf(principalName); } catch (Exception ignored) {}
+            }
+        } catch (Exception e) {
+            log.warn("[SSE] principal resolve error principal={} err={}", principalName, e.toString());
+        }
+        if (tmpId == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot resolve userId for principal");
+        }
+        final Integer resolvedId = tmpId;
+        SseEmitter emitter = ssePushService.connect(resolvedId);
+        if (log.isDebugEnabled()) {
+            log.debug("[SSE] stream established principal={} internalId={}", principalName, resolvedId);
+        }
+
+        // 3. 使用后台调度而不是手动 new Thread，避免过多瞬时线程（这里仍简单使用线程，后续可迁移到任务执行器）
+        try {
             new Thread(() -> {
                 try { Thread.sleep(50); } catch (InterruptedException ignored) {}
                 try {
-                    long unread = notificationService.unreadCount(userId);
-                    var inbox = notificationService.listInbox(userId, 20);
+                    long unread = notificationService.unreadCount(resolvedId);
+                    var inbox = notificationService.listInbox(resolvedId, 20);
                     Map<String,Object> snap = new java.util.LinkedHashMap<>();
                     snap.put("unreadCount", unread);
                     snap.put("notifications", inbox);
-                    ssePushService.snapshot(userId, snap);
-                } catch (Exception ignored) {}
+                    ssePushService.snapshot(resolvedId, snap);
+                } catch (Exception ex) {
+                    if (log.isDebugEnabled()) log.debug("[SSE] snapshot failed userId={} err={}", resolvedId, ex.getClass().getSimpleName());
+                }
             }, "sse-snapshot-trigger").start();
         } catch (Exception ignored) {}
         return emitter;

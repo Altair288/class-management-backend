@@ -343,6 +343,31 @@ public class UserController {
     // ========== 内部工具方法：构建含班长标记的 UserDTO ==========
     private UserDTO buildUserDTOWithMonitorInfo(User user) {
         UserDTO dto = new UserDTO(user.getId(), user.getUsername(), user.getUserType());
+        // loginName: 使用 identityNo (学号/工号) 作为登录标识；displayName: 关联实体的实际姓名
+        try { dto.setLoginName(user.getIdentityNo() != null ? user.getIdentityNo() : user.getUsername()); } catch (Exception ignored) {}
+        try {
+            String displayName = user.getUsername();
+            if (user.getUserType() != null && user.getRelatedId() != null) {
+                switch (user.getUserType()) {
+                    case STUDENT -> {
+                        var st = studentService.getStudentById(user.getRelatedId());
+                        if (st != null && st.getName() != null) displayName = st.getName();
+                    }
+                    case TEACHER -> {
+                        var t = teacherService.getTeacherById(user.getRelatedId());
+                        if (t != null && t.getName() != null) displayName = t.getName();
+                    }
+                    case PARENT -> {
+                        var p = parentService.getParentById(user.getRelatedId());
+                        if (p != null && p.getName() != null) displayName = p.getName();
+                    }
+                    case ADMIN -> {}
+                }
+            }
+            dto.setDisplayName(displayName);
+            // 向后兼容：旧前端仍读取 username 显示姓名 -> 保持 username = displayName
+            dto.setUsername(displayName);
+        } catch (Exception ignored) {}
         try { dto.setRelatedId(user.getRelatedId()); } catch (Exception ignored) {}
         try {
             if (user.getUserType() == User.UserType.STUDENT) {

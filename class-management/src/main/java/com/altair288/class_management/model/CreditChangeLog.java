@@ -17,6 +17,14 @@ public class CreditChangeLog {
     @Column(name = "operator_user_id", nullable = false)
     private Integer operatorUserId;
 
+    // 登录标识（学号/工号），新增列
+    @Column(name = "operator_login", length = 100)
+    private String operatorLogin;
+
+    // 展示姓名（真实姓名），新增列；原有 operator_username 仍保留做兼容
+    @Column(name = "operator_display_name", length = 100)
+    private String operatorDisplayName;
+
     @Column(name = "operator_username", nullable = false, length = 100)
     private String operatorUsername;
 
@@ -79,6 +87,10 @@ public class CreditChangeLog {
     public void setId(Long id) { this.id = id; }
     public Integer getOperatorUserId() { return operatorUserId; }
     public void setOperatorUserId(Integer operatorUserId) { this.operatorUserId = operatorUserId; }
+    public String getOperatorLogin() { return operatorLogin; }
+    public void setOperatorLogin(String operatorLogin) { this.operatorLogin = operatorLogin; }
+    public String getOperatorDisplayName() { return operatorDisplayName; }
+    public void setOperatorDisplayName(String operatorDisplayName) { this.operatorDisplayName = operatorDisplayName; }
     public String getOperatorUsername() { return operatorUsername; }
     public void setOperatorUsername(String operatorUsername) { this.operatorUsername = operatorUsername; }
     public String getOperatorRoleCodes() { return operatorRoleCodes; }
