@@ -2,11 +2,11 @@
 package com.altair288.class_management.service;
 
 import com.altair288.class_management.model.User;
-import com.altair288.class_management.repository.StudentRepository;
 import com.altair288.class_management.repository.UserRepository;
 import com.altair288.class_management.repository.UserRoleRepository;
 import com.altair288.class_management.model.UserRole;
 import com.altair288.class_management.util.PasswordValidator;
+import com.altair288.class_management.exception.BusinessException;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -16,14 +16,12 @@ import java.util.Date;
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final StudentRepository studentRepository;
     private final UserRoleRepository userRoleRepository;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, StudentRepository studentRepository,
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                        UserRoleRepository userRoleRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.studentRepository = studentRepository;
         this.userRoleRepository = userRoleRepository;
     }
 
@@ -53,20 +51,7 @@ public class UserService {
 
     public User getUserByUsernameOrIdentityNo(String loginName) {
         return userRepository.findByUsernameOrIdentityNo(loginName)
-            .orElseGet(() -> {
-                // 如果不是学号/用户名命中，尝试按学生姓名精确匹配（仅当唯一时）
-                var students = studentRepository.findByName(loginName.trim());
-                if (students.size() == 1) {
-                    // 回到 identityNo/username 再查一次
-                    String studentNo = students.get(0).getStudentNo();
-                    return userRepository.findByUsernameOrIdentityNo(studentNo)
-                        .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
-                } else if (students.size() > 1) {
-                    throw new IllegalArgumentException("存在重复姓名，请使用学号登录");
-                } else {
-                    throw new IllegalArgumentException("用户不存在");
-                }
-            });
+            .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
     }
 
     public PasswordEncoder getPasswordEncoder() {
@@ -80,5 +65,30 @@ public class UserService {
                 .map(UserRole::getRole)
                 .filter(r -> r != null && r.getCode() != null)
                 .anyMatch(r -> roleCode.equals(r.getCode()));
+    }
+
+    /**
+     * 修改密码：校验旧密码 -> 校验新密码复杂度 -> 不允许与旧密码相同 -> 持久化
+     * @param userId 当前用户ID
+     * @param oldPassword 旧密码明文
+     * @param newPassword 新密码明文
+     */
+    public void changePassword(Integer userId, String oldPassword, String newPassword) {
+        if (userId == null) throw new BusinessException("USER_NOT_FOUND", "非法用户");
+        if (oldPassword == null || newPassword == null) throw new BusinessException("PASSWORD_EMPTY", "密码不能为空");
+        User user = getUserById(userId);
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new BusinessException("OLD_PASSWORD_INCORRECT", "旧密码不正确");
+        }
+        try {
+            PasswordValidator.validatePassword(newPassword);
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException("PASSWORD_POLICY_VIOLATION", ex.getMessage());
+        }
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new BusinessException("PASSWORD_SAME", "新密码不能与旧密码相同");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 }

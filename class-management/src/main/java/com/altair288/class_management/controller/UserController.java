@@ -28,8 +28,12 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.altair288.class_management.dto.TeacherDTO;
+import com.altair288.class_management.dto.ChangePasswordDTO;
+import com.altair288.class_management.exception.BusinessException;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
+import java.util.Map;
 
 
 @RestController
@@ -246,6 +250,26 @@ public class UserController {
             .map(c -> new ClassSimpleDTO(c.getId(), c.getName(), c.getGrade()))
             .toList();
         return ResponseEntity.ok(result);
+    }
+
+    // 已登录修改密码
+    @PatchMapping("/password")
+    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordDTO dto, Authentication authentication, HttpServletRequest request) {
+        if (dto.getNewPassword() == null || dto.getConfirmPassword() == null || !dto.getNewPassword().equals(dto.getConfirmPassword())) {
+            throw new BusinessException("PASSWORD_CONFIRM_MISMATCH", "两次新密码不一致");
+        }
+        User current = userService.getUserByUsernameOrIdentityNo(authentication.getName());
+        userService.changePassword(current.getId(), dto.getOldPassword(), dto.getNewPassword());
+        // 强制登出：使 session 失效并清除上下文
+        try {
+            var session = request.getSession(false);
+            if (session != null) session.invalidate();
+        } catch (Exception ignored) {}
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        return ResponseEntity.ok(Map.of(
+                "message", "修改成功，请重新登录",
+                "forceReLogin", true
+        ));
     }
 
     // ========== 内部工具方法：构建含班长标记的 UserDTO ==========

@@ -56,6 +56,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "INVALID_PARAM", e.getMessage(), req);
     }
 
+    // ---- 业务异常（自定义通用） ----
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiError> handleBusiness(BusinessException e, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, e.getCode(), e.getMessage(), req);
+    }
+
     // ---- 校验失败 ----
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException e, HttpServletRequest req) {
