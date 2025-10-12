@@ -30,6 +30,16 @@
 		<java.version>23</java.version>
 	</properties>
 	<dependencies>
+		<!-- WebClient for calling Cloudflare Worker -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webflux</artifactId>
+		</dependency>
+		<!-- 邮件发送用于密码重置 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
 		<!-- Flyway for DB migrations -->
 		<dependency>
 			<groupId>org.flywaydb</groupId>

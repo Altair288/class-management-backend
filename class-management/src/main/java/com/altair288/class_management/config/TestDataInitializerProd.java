@@ -66,11 +66,60 @@ public class TestDataInitializerProd {
     @PostConstruct
     public void init() {
         try {
+            // 哨兵检测：若核心数据已存在则跳过（幂等 & 防止容器重启重复输出日志/抛错）
+            if (isAlreadyBootstrapped()) {
+                log.info("[prod-bootstrap] 检测到核心数据已存在，跳过初始化 (可通过删除相关记录或更换环境变量重建)");
+                // 仍允许在 resetIfExists=true 且 admin 用户存在时执行密码重置
+                if (resetIfExists && !isBlank(adminUsername) && !isBlank(adminPassword)) {
+                    bootstrapAdminPasswordResetOnly();
+                }
+                return;
+            }
+
             ensureDepartments();
             ensureCreditItems();
             bootstrapAdmin();
         } catch (Exception e) {
             log.error("[prod-bootstrap] 初始化过程出现未捕获异常: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 判定是否已经引导：满足任一条件即可视为已初始化：
+     *  1) 存在任一部门（INFO/MECH/FASH 任意一个）
+     *  2) 存在任一学分分类（德/智/体/美/劳 任意一个）
+     *  3) 若配置了 adminUsername，则该用户名或 identityNo 的用户已存在
+     */
+    private boolean isAlreadyBootstrapped() {
+        try {
+            boolean deptExists = departmentRepository.findByCode("INFO").isPresent()
+                    || departmentRepository.findByCode("MECH").isPresent()
+                    || departmentRepository.findByCode("FASH").isPresent();
+            boolean creditExists = creditItemRepository.existsByCategory("德")
+                    || creditItemRepository.existsByCategory("智")
+                    || creditItemRepository.existsByCategory("体")
+                    || creditItemRepository.existsByCategory("美")
+                    || creditItemRepository.existsByCategory("劳");
+            boolean adminExists = !isBlank(adminUsername)
+                    && userRepository.findByUsernameOrIdentityNo(adminUsername).isPresent();
+            return deptExists || creditExists || adminExists;
+        } catch (Exception ex) {
+            log.warn("[prod-bootstrap] 哨兵检测出现异常，视为未初始化继续执行: {}", ex.getMessage());
+            return false;
+        }
+    }
+
+    /** 仅在已初始化且需要 resetIfExists=true 时执行管理员密码重置 */
+    private void bootstrapAdminPasswordResetOnly() {
+        try {
+            User existing = userRepository.findByUsernameOrIdentityNo(adminUsername).orElse(null);
+            if (existing != null && resetIfExists) {
+                existing.setPassword(userService.getPasswordEncoder().encode(adminPassword));
+                userRepository.save(existing);
+                log.info("[prod-bootstrap] (哨兵模式) 已重置管理员 '{}' 密码", adminUsername);
+            }
+        } catch (Exception e) {
+            log.error("[prod-bootstrap] (哨兵模式) 管理员密码重置失败: {}", e.getMessage(), e);
         }
     }
 
