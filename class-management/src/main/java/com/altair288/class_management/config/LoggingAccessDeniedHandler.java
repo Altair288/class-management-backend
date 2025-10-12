@@ -48,10 +48,19 @@ public class LoggingAccessDeniedHandler implements AccessDeniedHandler {
             String remote = request.getRemoteAddr();
             String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : "(no-session)";
             String ua = request.getHeader("User-Agent");
-            log.error("ACCESS_DENIED at {} path='{}' pattern='{}' method={} query='{}' principal='{}' roles='{}' committed={} dispatcher={} asyncStarted={} session={} remote={} ua='{}' msg={}",
-                    Instant.now(), path, pattern, method, query, principal, roles, response.isCommitted(), dispatcher, asyncStarted, sessionId, remote, ua, accessDeniedException.getMessage());
-            if (verboseStack) {
-                log.error("ACCESS_DENIED stack", accessDeniedException);
+            boolean committed = response.isCommitted();
+            boolean ssePath = path != null && path.contains("/api/notifications/stream");
+            boolean asyncNoise = ("ASYNC".equals(dispatcher) || asyncStarted) && (committed || ssePath);
+            String logLine = String.format("ACCESS_DENIED at %s path='%s' pattern='%s' method=%s query='%s' principal='%s' roles='%s' committed=%s dispatcher=%s asyncStarted=%s session=%s remote=%s ua='%s' msg=%s",
+                    Instant.now(), path, pattern, method, query, principal, roles, committed, dispatcher, asyncStarted, sessionId, remote, ua, accessDeniedException.getMessage());
+            if (asyncNoise) {
+                // 这类多为 SSE 断开后的异步写入或已提交响应上的二次触发，降级为 debug
+                if (log.isDebugEnabled()) log.debug(logLine);
+            } else {
+                log.error(logLine);
+                if (verboseStack) {
+                    log.error("ACCESS_DENIED stack", accessDeniedException);
+                }
             }
         }
         delegate.handle(request, response, accessDeniedException);
