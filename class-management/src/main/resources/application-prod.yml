@@ -34,7 +34,7 @@ security:
   password-reset:
     token-expire-minutes: 30
     ip-hourly-limit: 20
-    frontend-base-url: https://altair288.eu.org
+    frontend-base-url: https://arch.altair288.eu.org:3002
     mail-from: ${PASSWORD_RESET_MAIL_FROM:no-reply@altair288.eu.org}
 
 mail:

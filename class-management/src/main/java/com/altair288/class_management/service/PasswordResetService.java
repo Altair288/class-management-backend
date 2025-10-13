@@ -118,12 +118,32 @@ public class PasswordResetService {
     }
 
     private void sendResetMail(User user, PasswordResetToken token) {
-        String link = props.getFrontendBaseUrl().replaceAll("/+$", "") + "/reset-password?token=" + token.getToken();
+        String base = props.getFrontendBaseUrl().replaceAll("/+$$", "");
+        String link = base + "/reset-password?token=" + token.getToken();
         String subject = "密码重置请求";
-        String body = "<p>您收到此邮件是因为提交了密码重置请求（或有人尝试）。如果不是您本人操作，可忽略本邮件。</p>" +
-                "<p>点击以下链接设置新密码（" + props.getTokenExpireMinutes() + "分钟内有效）:</p>" +
-                "<p><a href='" + link + "'>" + link + "</a></p>" +
-                "<p>如果无法点击，请复制链接到浏览器。</p>";
+        // 简单品牌色/暗色兼容：按钮使用内联样式，避免大多邮件客户端屏蔽外链 CSS
+        String body = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>密码重置</title>" +
+                "<meta name='color-scheme' content='light dark'><meta name='supported-color-schemes' content='light dark'></head>" +
+                "<body style=\"margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans',sans-serif;line-height:1.6;\">" +
+                "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='background:#f5f7fa;padding:32px 0;'>" +
+                "<tr><td>" +
+                "<table role='presentation' cellpadding='0' cellspacing='0' width='100%' style='max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e9ef;'>" +
+                "<tr><td style='background:linear-gradient(135deg,#1D4ED8,#2563EB);padding:20px 28px;'>" +
+                "<h1 style='margin:0;font-size:20px;color:#fff;'>密码重置</h1>" +
+                "</td></tr>" +
+                "<tr><td style='padding:28px;'>" +
+                "<p style='margin:0 0 16px;font-size:15px;color:#334155;'>您收到此邮件是因为提交了密码重置请求（或有人尝试）。如果不是您本人操作，可忽略本邮件。</p>" +
+                "<p style='margin:0 0 16px;font-size:15px;color:#334155;'>请在 <strong>" + props.getTokenExpireMinutes() + "分钟</strong> 内点击下方按钮设置新密码：</p>" +
+                "<p style='text-align:center;margin:32px 0;'>" +
+                "<a href='" + link + "' style=\"display:inline-block;background:#2563EB;color:#ffffff;text-decoration:none;font-size:16px;padding:14px 28px;border-radius:8px;font-weight:600;\">设置新密码</a>" +
+                "</p>" +
+                "<p style='margin:0 0 12px;font-size:13px;color:#64748b;'>如果按钮无法点击，请复制以下链接到浏览器打开：</p>" +
+                "<p style='word-break:break-all;font-size:12px;color:#2563EB;margin:0 0 24px;'><a style='color:#2563EB;' href='" + link + "'>" + link + "</a></p>" +
+                "<hr style='border:none;border-top:1px solid #e2e8f0;margin:24px 0;'>" +
+                "<p style='margin:0;font-size:12px;color:#94a3b8;'>此邮件由系统自动发送，请勿直接回复。</p>" +
+                "</td></tr></table>" +
+                "</td></tr></table>" +
+                "</body></html>";
         try {
             mailService.sendHtmlMail(props.getMailFrom(), resolveUserEmail(user), subject, body);
             log.info("[pwd-reset] 邮件已发送 userId={}", user.getId());
