@@ -30,6 +30,10 @@
 		<java.version>23</java.version>
 	</properties>
 	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
 		<!-- WebClient for calling Cloudflare Worker -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

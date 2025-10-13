@@ -1,36 +1,40 @@
 spring:
-    datasource:
-        url: jdbc:mysql://${DB_HOST:${MYSQL_HOST:db}}:${DB_PORT:3306}/${DB_NAME:class_management}?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
-        username: ${DB_USER:root}
-        password: ${DB_PASSWORD:rootpass}
-        driver-class-name: com.mysql.cj.jdbc.Driver
-    # 全局禁止 Spring Boot 通过 schema.sql/data.sql 进行初始化（避免与 Flyway 冲突）
-    sql:
-        init:
-            mode: never
-    # 全局强制禁止 Hibernate 自动修改结构（所有 profile 生效）
-    jpa:
-        hibernate:
-            ddl-auto: none   # 兜底：所有环境禁止自动建表/更新
-        generate-ddl: false
-        properties:
-            hibernate:
-                hbm2ddl:
-                    auto: none  # 再次兜底，防止有人用 -Dhibernate.hbm2ddl.auto=update 覆盖
+  datasource:
+    url: jdbc:mysql://${DB_HOST:${MYSQL_HOST:db}}:${DB_PORT:3306}/${DB_NAME:class_management}?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:rootpass}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  # 全局禁止 Spring Boot 通过 schema.sql/data.sql 进行初始化（避免与 Flyway 冲突）
+  sql:
+    init:
+      mode: never
+  # 全局强制禁止 Hibernate 自动修改结构（所有 profile 生效）
+  jpa:
+    hibernate:
+      ddl-auto: none # 兜底：所有环境禁止自动建表/更新
+    generate-ddl: false
+    properties:
+      hibernate:
+        hbm2ddl:
+          auto: none # 再次兜底，防止有人用 -Dhibernate.hbm2ddl.auto=update 覆盖
 
 management:
-    endpoints:
-        web:
-            exposure:
-                include: health,info
-    endpoint:
-        health:
-            probes:
-                enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    mail:
+      enabled: false
+    # db:
+    #     enabled: false
 
 server:
-    port: 8080
-
+  port: 8080
 # 说明：
 # 1. 所有环境结构演进只允许通过 Flyway 迁移脚本（db/migration 下 Vx__*.sql）。
 # 2. 若需要新增表/列：新增新的 V{N}__description.sql，再提交；禁止修改已发布版本脚本。

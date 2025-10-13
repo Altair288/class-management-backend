@@ -59,6 +59,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/users/register/teacher").permitAll()
                 .requestMatchers("/api/users/login").permitAll()
                 .requestMatchers("/api/users/classes").permitAll()
+                // 放行容器健康度检测端口
+                .requestMatchers("/actuator/health").permitAll()
                 // 放行密码重置相关端点 (统一前缀 /api/auth/... )
                 .requestMatchers("/api/auth/**").permitAll()
                 // SSE: 改为放行，内部控制器自行校验，以避免异步 dispatch 阶段的 AuthorizationDeniedException 噪声
