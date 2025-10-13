@@ -38,6 +38,14 @@ logging:
       hibernate:
         SQL: DEBUG
 
+mail:
+  provider: resend
+  resend:
+    api-key: ${RESEND_API_KEY:}
+security:
+  password-reset:
+    mail-from: no-reply@altair288.eu.org
+
 # 提示：新增表/列时请：
 # 1) 在 db/migration 下新增 V{N}__desc.sql（结构变更）
 # 2) 如仅 dev 演示数据放 db/migration-dev 里用 R__ 前缀（可重复执行），不要进 prod

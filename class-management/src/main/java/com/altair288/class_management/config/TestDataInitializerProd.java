@@ -39,6 +39,12 @@ public class TestDataInitializerProd {
     @Value("${APP_BOOTSTRAP_ADMIN_RESET_IF_EXISTS:false}")
     private boolean resetIfExists;
 
+    // 邮件/Resend 配置调试：生产环境也打印是否已正确注入（只显示掩码）
+    @Value("${mail.provider:smtp}")
+    private String mailProvider;
+    @Value("${mail.resend.api-key:}")
+    private String resendApiKey;
+
     private final UserRepository userRepository;
     private final UserService userService;
     private final RoleService roleService;
@@ -66,6 +72,10 @@ public class TestDataInitializerProd {
     @PostConstruct
     public void init() {
         try {
+            log.info("[prod-mail-debug] mail.provider={} resend.key.present={} resend.key.mask={}",
+                    mailProvider,
+                    (resendApiKey != null && !resendApiKey.isBlank()),
+                    maskKey(resendApiKey));
             // 哨兵检测：若核心数据已存在则跳过（幂等 & 防止容器重启重复输出日志/抛错）
             if (isAlreadyBootstrapped()) {
                 log.info("[prod-bootstrap] 检测到核心数据已存在，跳过初始化 (可通过删除相关记录或更换环境变量重建)");
@@ -197,4 +207,11 @@ public class TestDataInitializerProd {
     }
 
     private boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
+
+    private String maskKey(String key) {
+        if (key == null || key.isBlank()) return "";
+        String k = key.trim();
+        if (k.length() <= 8) return "***";
+        return k.substring(0,4) + "***" + k.substring(k.length()-2);
+    }
 }

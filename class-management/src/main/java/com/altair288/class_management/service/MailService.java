@@ -45,9 +45,10 @@ public class MailService {
     public void sendHtmlMail(String from, String to, String subject, String html) throws MessagingException {
         if ("worker".equalsIgnoreCase(provider)) {
             sendViaWorker(from, to, subject, html);
-            return;
+            return; // worker 分支内部自行记录日志；失败仅记录不抛异常（保持现状）
         }
         if ("resend".equalsIgnoreCase(provider)) {
+            // 若发送失败应抛出运行时异常给调用方（使调用方可识别失败而不打印成功日志）
             sendViaResend(from, to, subject, html);
             return;
         }
@@ -118,15 +119,14 @@ public class MailService {
             text = text.substring(0, 4000);
         }
 
-        Map<String, Object> payload = Map.of(
-                "from", from,
-                "to", new String[]{to},
-                "subject", subject,
-                "html", html,
-                "text", text
-        );
-
-        String body = JsonUtil.toJson(payload);
+        // 使用标准 Map + List 让 WebClient + Jackson 自动序列化
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("from", from);
+        // Resend 支持字符串或数组; 为统一扩展性使用数组形式
+        payload.put("to", java.util.List.of(to));
+        payload.put("subject", subject);
+        payload.put("html", html);
+        payload.put("text", text);
 
         int maxAttempts = 3;
         long backoff = 500L; // 初始 0.5s 指数退避
@@ -134,26 +134,25 @@ public class MailService {
             try {
                 int currentAttempt = attempt;
                 String resp = webClient.post()
-                        .uri(url)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", "Bearer " + resendApiKey)
-                        .bodyValue(body)
-                        .retrieve()
-                        .onStatus(status -> status.value() >= 400, clientResponse -> {
-                            int code = clientResponse.statusCode().value();
-                            // 429 / 5xx 触发重试，其它直接失败
-                            if ((code == 429 || code >= 500) && currentAttempt < maxAttempts) {
-                                return clientResponse.bodyToMono(String.class)
-                                        .doOnNext(err -> log.warn("[mail-resend] attempt={} transient status={} body={}", currentAttempt, code, err))
-                                        .flatMap(err -> Mono.error(new RuntimeException("TRANSIENT:" + code + ":" + err)));
-                            }
+                    .uri(url)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header("Authorization", "Bearer " + resendApiKey)
+                    .bodyValue(payload)
+                    .retrieve()
+                    .onStatus(status -> status.value() >= 400, clientResponse -> {
+                        int code = clientResponse.statusCode().value();
+                        if ((code == 429 || code >= 500) && currentAttempt < maxAttempts) {
                             return clientResponse.bodyToMono(String.class)
-                                    .flatMap(err -> Mono.error(new RuntimeException("FATAL:" + code + ":" + err)));
-                        })
-                        .bodyToMono(String.class)
-                        .block();
+                                .doOnNext(err -> log.warn("[mail-resend] attempt={} transient status={} body={}", currentAttempt, code, err))
+                                .flatMap(err -> Mono.error(new RuntimeException("TRANSIENT:" + code + ":" + err)));
+                        }
+                        return clientResponse.bodyToMono(String.class)
+                            .flatMap(err -> Mono.error(new RuntimeException("FATAL:" + code + ":" + err)));
+                    })
+                    .bodyToMono(String.class)
+                    .block();
                 log.info("[mail-resend] 发送成功 to={} attempt={} resp={}", to, attempt, resp);
-                return;
+                return; // 成功即返回
             } catch (Exception ex) {
                 String msg = ex.getMessage();
                 boolean transientErr = msg != null && msg.startsWith("TRANSIENT:");
@@ -163,7 +162,7 @@ public class MailService {
                     continue;
                 }
                 log.error("[mail-resend] 发送失败 to={} attempt={} err={}", to, attempt, msg);
-                return; // 放弃
+                throw new RuntimeException("MAIL_RESEND_FAILED:" + msg);
             }
         }
     }

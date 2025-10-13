@@ -44,8 +44,19 @@ public class TestDataInitializerDev {
     @Autowired private com.altair288.class_management.repository.RoleAssignmentRepository roleAssignmentRepository;
     @Autowired private UserRepository userRepository; // 用于幂等检测
 
+    // 邮件/Resend 配置信息用于调试打印（掩码输出）
+    @org.springframework.beans.factory.annotation.Value("${mail.provider:smtp}")
+    private String mailProvider;
+    @org.springframework.beans.factory.annotation.Value("${mail.resend.api-key:}")
+    private String resendApiKey;
+
     @PostConstruct
     public void init() {
+        // 预先打印当前邮件发送配置（仅 dev 环境），帮助确认 Resend Key 是否已正确注入
+        logger.info("[dev-mail-debug] mail.provider={} resend.key.present={} resend.key.mask={}",
+                mailProvider,
+                (resendApiKey != null && !resendApiKey.isBlank()),
+                maskKey(resendApiKey));
         // 1. 哨兵检测：若 admin 用户存在则判定已初始化，直接跳过
         try {
             if (userRepository.existsByUsername("admin")) {
@@ -285,6 +296,16 @@ public class TestDataInitializerDev {
         } catch (Exception e) {
             logger.error("初始化测试数据时发生错误", e);
         }
+    }
+
+    /** 对 API Key 进行掩码处理：保留前 4 与后 2 其余使用 * 号；为空/过短直接返回原值 */
+    private String maskKey(String key) {
+        if (key == null || key.isBlank()) return "";
+        String k = key.trim();
+        if (k.length() <= 8) return "***"; // 统一短 key 不暴露长度
+        String head = k.substring(0, 4);
+        String tail = k.substring(k.length() - 2);
+        return head + "***" + tail;
     }
 
     private Teacher mkTeacher(String name, String no, String phone, String email) {

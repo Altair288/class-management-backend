@@ -17,8 +17,8 @@ spring:
     init:
       mode: never  # 禁止执行 classpath 下的 schema.sql，全部交给 Flyway
   mail:
-    host: smtp.example.com
-    port: 587
+    host: ${SMTP_HOST:smtp.example.com}
+    port: ${SMTP_PORT:587}
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
     properties:
@@ -34,14 +34,13 @@ security:
   password-reset:
     token-expire-minutes: 30
     ip-hourly-limit: 20
-    frontend-base-url: https://your-frontend.example.com
-    mail-from: no-reply@your-domain.example
+    frontend-base-url: https://altair288.eu.org
+    mail-from: ${PASSWORD_RESET_MAIL_FROM:no-reply@altair288.eu.org}
 
 mail:
-  provider: resend # 可选: smtp | worker | resend
+  provider: ${MAIL_PROVIDER:resend} # 可选: smtp | worker | resend
   resend:
     api-key: ${RESEND_API_KEY:}
-  # 若继续保留 worker 以便以后切换，可保留原有配置
   worker:
     base-url: ${MAIL_WORKER_BASE_URL:}
     hmac-secret: ${MAIL_WORKER_HMAC_SECRET:}
