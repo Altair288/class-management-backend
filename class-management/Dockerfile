@@ -4,7 +4,7 @@
 # ===========================
 
 # ---- Build Stage ----
-FROM maven:3.9-eclipse-temurin-23 AS build
+FROM docker.altair288.eu.org/maven:3.9-eclipse-temurin-23 AS build
 WORKDIR /app
 
 # 使用阿里云或官方中央仓库可选: 在 settings.xml 中配置镜像以加速
@@ -20,12 +20,19 @@ COPY src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q package -DskipTests
 
 # ---- Runtime Stage ----
-FROM eclipse-temurin:23-jre AS runtime
+FROM docker.altair288.eu.org/eclipse-temurin:23-jre AS runtime
 WORKDIR /app
 
 # 
 # 可以通过构建参数传递版本 (可选)
 ARG JAR_NAME=class-management-0.0.1-SNAPSHOT.jar
+
+## 安装 curl 供 healthcheck 使用（基础镜像若是 debian/ubuntu 系）
+USER root
+RUN apt-get update 2>/dev/null || true && \
+	(apt-get install -y --no-install-recommends curl || true) && \
+	rm -rf /var/lib/apt/lists/* || true && \
+	(command -v curl || echo 'curl not installed')
 
 # 复制 jar
 COPY --from=build /app/target/${JAR_NAME} app.jar
