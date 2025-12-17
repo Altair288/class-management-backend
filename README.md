@@ -11,7 +11,7 @@ The system digitizes and automates class operations such as student information 
 
 ---
 
-## 📚 Table of Contents
+## Table of Contents
 
 * [1. Project Background & Motivation](#1-project-background--motivation)
 * [2. Requirements & Technical Implementation](#2-requirements--technical-implementation)
@@ -54,32 +54,32 @@ This project provides a unified digital platform for **administrators, teachers,
 
 ## 2.1 Core Functional Requirements
 
-### 🔐 User Authentication & Authorization (RBAC)
+### User Authentication & Authorization (RBAC)
 
 * Account/password login
 * Role-based access control (Admin/Teacher/Student)
 * Password reset (email / verification code)
 
-### 👤 Student Information Management
+### Student Information Management
 
 * CRUD operations
 * Batch import via CSV/Excel
 * Personal information dashboard
 
-### 🔔 Message & Notification Center
+### Message & Notification Center
 
 * Send global or targeted notifications
 * Read/unread tracking
 * Real-time alerts via WebSocket or polling
 
-### 📦 File & Resource Management
+### File & Resource Management
 
 * Avatar upload
 * Assignment submission
 * Course resource downloads
 * MinIO/S3 integration
 
-### 🏆 Credits & Grade Management
+### Credits & Grade Management
 
 * Record assessment scores
 * Visual grade reports
@@ -124,7 +124,7 @@ This project provides a unified digital platform for **administrators, teachers,
 * Core tables: `users`, `roles`, `messages`, `files`, `grades`, etc.
 * Managed by Flyway (`V1__baseline.sql`, `V2__seed_data.sql`, …)
 
-### 🧩 Backend Architecture
+### Backend Architecture
 
 * Layered design:
   `Controller → Service → Repository`
@@ -132,14 +132,14 @@ This project provides a unified digital platform for **administrators, teachers,
 * Integrated MinIO-based file services
 * Multi-environment config (`dev`, `prod`)
 
-### 🎨 Frontend Development
+### Frontend Development
 
 * Next.js + TypeScript project structure
 * Reusable layout components
 * Responsive UI for PC & Mobile
 * Global notification system via Context API
 
-### 🚀 Deployment
+### Deployment
 
 * Docker Compose: backend + frontend + MySQL + MinIO
 * Nginx reverse proxy for routing and CORS
@@ -148,14 +148,14 @@ This project provides a unified digital platform for **administrators, teachers,
 
 # 3. System Results
 
-### ✅ Fully Functional Production-Ready System
+### Fully Functional Production-Ready System
 
 * Complete workflow from login → management → notifications
 * Secure access control
 * Modern responsive UI
 * Dockerized for quick deployment
 
-### 🌟 System Highlights
+### System Highlights
 
 * Real-time Message Center
 * Dynamic visual workflow charts
@@ -165,9 +165,9 @@ This project provides a unified digital platform for **administrators, teachers,
 
 # 4. Future Roadmap
 
-* 📱 Mobile App (React Native / Flutter)
-* 🤖 AI Assistant for score analysis & automated grading
-* 🏫 More modules: Leave approvals, dormitory management, campus service suite
+*  Mobile App (React Native / Flutter)
+*  AI Assistant for score analysis & automated grading
+*  More modules: Leave approvals, dormitory management, campus service suite
 
 ---
 
