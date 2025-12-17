@@ -84,7 +84,7 @@ This project provides a unified digital platform for **administrators, teachers,
 * Record assessment scores
 * Visual grade reports
 
-### ⚙ System Settings & Monitoring
+### System Settings & Monitoring
 
 * Light/Dark mode
 * System logs
@@ -118,7 +118,7 @@ This project provides a unified digital platform for **administrators, teachers,
 
 ## 2.3 Architecture & Development Workflow
 
-### 🗄 Database Design
+### Database Design
 
 * Third-normal-form schema
 * Core tables: `users`, `roles`, `messages`, `files`, `grades`, etc.
